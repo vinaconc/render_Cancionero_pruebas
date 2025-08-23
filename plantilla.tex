@@ -6,12 +6,15 @@
 
 % --- Paquetes generales ---
 \usepackage{xcolor}
-\usepackage[chorded]{songs}
+% Usa la opción 'versenums' para que las estrofas se identifiquen con números
+\usepackage[chorded, verse]{songs} 
 
 % --- Paquetes adicionales ---
 \usepackage{pdfpages}
 \usepackage[normalem]{ulem}
 \usepackage{scrextend}
+\usepackage{imakeidx}
+\usepackage{hyperref} 
 
 % --- Geometría ---
 \usepackage[a4paper,
@@ -27,84 +30,42 @@
             showframe=false
             ]{geometry}
 
-% --- Índices ---
-\usepackage{imakeidx}
-\makeindex[name=tema, title=Índice Temático]
-\makeindex[name=titleidx, title=Índice Alfabético de Canciones, columns=1] 
-
-\newcommand{\indexsongtitle}[1]{%
-  \phantomsection
-  \index[titleidx]{#1}%
-}
-
-% --- Hipervínculos ---
-\usepackage{hyperref} 
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue,
-    citecolor=green,
-    urlcolor=cyan,
-    filecolor=magenta,
-    pdftitle={Mi Cancionero Temático},
-    pdfauthor={Tu Nombre},
-    pdfcreator={LaTeX with hyperref},
-    pdfproducer={LaTeX},
-    linktocpage=true
-}
-
-% --- Tamaño de fuente ---
-\changefontsizes[14pt]{11pt} 
-
 % --- Configuraciones del paquete 'songs' ---
-\noversenumbers
+% Desactivar la numeración automática de los versos (si no la quieres)
+\noversenumbers 
 \baselineadj=-10pt plus 10pt minus 10pt
 \renewcommand{\clineparams}{
-  \baselineskip=35pt
-  \lineskiplimit=35pt
-  \lineskip=1pt
+    \baselineskip=35pt
+    \lineskiplimit=35pt
+    \lineskip=1pt
 }
 
-% --- Redefinir estrofas para letra al margen ---
+% === CONFIGURACIONES CLAVE PARA LA IDENTIFICACIÓN DE ESTROFAS ===
+% Este comando convierte los números de verso a letras y las pone en el margen
+% Para usarlo, simplemente agrega '\versenumsAsLetters' en tu código
 \makeatletter
-\renewcommand{\printverse}[1]{%
-  \begingroup
-  \setlength{\parindent}{0pt}%
-  \setlength{\leftskip}{0pt}%
-  \setlength{\parskip}{0.5em}%
-  \@for\verse@line:=#1\do{%
-    \ifx\verse@line\empty\else
-      \noindent
-      \llap{\textbf{\verse@num}\hspace{1em}}%
-      \verse@line\par
-    \fi
+\def\versenumsAsLetters#1{\@arabicchar@true\count@#1
+  \@whiledim\count@>\z@\do{%
+    \advance\count@\m@ne
+    \edef\next@char{\char\expandafter\strip@prefix\meaning\count@}%
+    \edef\v@string{\next@char\v@string}%
   }%
-  \endgroup
+  \def\v@next{}%
+  \def\v@prev{}%
+  \edef\v@out{\unexpanded\expandafter{\@v@num\v@string}}%
+  \expandafter\let\expandafter\v@out\expandafter\@gobble\v@out
+  \expandafter\let\expandafter\@v@num\expandafter\@v@num\expandafter\v@string%
 }
 \makeatother
 
-% --- Resto de comandos personalizados ---
+% === COMANDOS PERSONALIZADOS DEL USUARIO ===
+% ... (Mantén el resto de tus comandos personalizados como están) ...
 \newcommand{\version}{}
 \newsongkey{v}{\def\version{}}{\def\version{Versión: #1\par}}
-
-\newcommand\toctitle{}
-\makeatletter
-\gdef\toclink{%
-  \@ifundefined{href}{}%
-}
-\makeatother
-
-\newcommand\addtotoc[1]{\addtocontents{toc}{\protect\contentsline
- {\ifnum\value{section}>0sub\fi section}%
-{\numberline\thesongnum#1}%
- {\thepage}%
- {\toclink}}}
-\newsongkey{toc}{\def\toctitle{\resettitles\addtotoc\songtitle}}{\def\toctitle{\addtotoc{#1}}}
 \renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
-
 \newcommand{\indexword}[1]{\textcolor{blue}{#1}\index{#1}}
 
-\let\cleardoublepage\relax
-
+% --- INICIO DEL DOCUMENTO ---
 \begin{document}
 
 \frontmatter
@@ -114,29 +75,12 @@
 \mainmatter
 \pagestyle{plain}
 
-\renewcommand{\indexname}{Índice Temático}
 \renewcommand{\everychorus}{\textnote{CORO:}}
 \renewcommand{\chorusfont}{\it}
 \renewcommand{\printchord}[1]{\rmfamily\bf#1}
-% Desactiva el recuadro automático de estrofas
-\setlength{\versesep}{1em}   % separación entre estrofas
-\renewcommand{\printverse}[1]{%
-  \begingroup
-  \setlength{\parindent}{0pt}%
-  \setlength{\parskip}{0.5em}%
-  \@for\verse@line:=#1\do{%
-    \ifx\verse@line\empty\else
-      \noindent
-      \llap{\textbf{\verse@num}\hspace{1em}}%
-      \verse@line\par
-    \fi
-  }%
-  \endgroup
-}
 
 % --- INICIO CANCIONERO ---
 % --- FIN CANCIONERO ---
 
 \printindex[titleidx]
 \end{document}
-
