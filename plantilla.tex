@@ -73,14 +73,8 @@
 % --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
 % Implementación básica del comando \diagram usando solo comandos estándar
 \renewcommand\diagram[2]{%
-  \begin{tcolorbox}[enhanced,
-                    frame hidden,                   % quitar bordes completos
-                    borderline west={1pt}{0pt}{black}, % línea izquierda
-                    left=3mm, right=0mm, top=1mm, bottom=1mm,
-                    sharp corners,
-                    width=\linewidth]               % ancho de la columna
-    \textbf{#1} \hspace{0.5cm} #2
-  \end{tcolorbox}%
+  \noindent
+  \fbox{\textbf{#1}}\hspace{0.5cm}#2\par\vspace{0.5cm}%
 }
 
 % Comando esquema alternativo
@@ -141,5 +135,6 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
