@@ -118,9 +118,25 @@
 \renewcommand{\everychorus}{\textnote{CORO:}}
 \renewcommand{\chorusfont}{\it}
 \renewcommand{\printchord}[1]{\rmfamily\bf#1}
+% Desactiva el recuadro automático de estrofas
+\setlength{\versesep}{1em}   % separación entre estrofas
+\renewcommand{\printverse}[1]{%
+  \begingroup
+  \setlength{\parindent}{0pt}%
+  \setlength{\parskip}{0.5em}%
+  \@for\verse@line:=#1\do{%
+    \ifx\verse@line\empty\else
+      \noindent
+      \llap{\textbf{\verse@num}\hspace{1em}}%
+      \verse@line\par
+    \fi
+  }%
+  \endgroup
+}
 
 % --- INICIO CANCIONERO ---
 % --- FIN CANCIONERO ---
 
 \printindex[titleidx]
 \end{document}
+
