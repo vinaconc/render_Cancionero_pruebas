@@ -654,90 +654,63 @@ def compilar_tex_seguro(tex_path):
 		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
 @app.route("/", methods=["GET", "POST"])
 def index():
-    texto = ""  # valor por defecto
+    texto = ""
 
     try:
         if request.method == "POST":
+            accion = request.form.get("accion")  # Saber si es abrir, guardar, guardar como
+
+            if accion == "abrir":
+                # Abrir un archivo ya guardado
+                if os.path.exists(archivo_salida):
+                    with open(archivo_salida, "r", encoding="utf-8") as f:
+                        texto = f.read()
+                return render_template_string(FORM_HTML, texto=texto)
+
             texto = request.form.get("texto", "")
 
+            # Subida de archivo
             uploaded_file = request.files.get("archivo")
             if uploaded_file and uploaded_file.filename:
                 texto = uploaded_file.read().decode("utf-8")
 
-			# Limpiar archivos anteriores
-			if os.path.exists(archivo_salida):
-				os.remove(archivo_salida)
-			pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-			if os.path.exists(pdf_file):
-				os.remove(pdf_file)
+            # Guardar o Guardar como
+            if accion in ("guardar", "guardar_como"):
+                try:
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
+                except Exception:
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
 
-			if os.path.exists(pdf_file):
-    			return send_file(pdf_file, as_attachment=True, download_name="cancionero.pdf")
+            return render_template_string(FORM_HTML, texto=texto)
 
-			# 1️⃣ Procesar canciones
-			try:
-				contenido_canciones = convertir_songpro(texto)
-			except Exception:
-				return f"<h3>Error en convertir_songpro:</h3><pre>{traceback.format_exc()}</pre>"
+        # Si es GET
+        return render_template_string(FORM_HTML, texto=texto)
 
-			# 2️⃣ Generar índice temático
-			try:
-				indice_tematica = generar_indice_tematica()
-			except Exception:
-				return f"<h3>Error en generar_indice_tematica:</h3><pre>{traceback.format_exc()}</pre>"
+    except Exception:
+        return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
 
-			# 3️⃣ Reemplazo en la plantilla
-			try:
-				def reemplazar(match):
-					return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
 
-				nuevo_tex = re.sub(
-					r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
-					reemplazar,
-					plantilla,
-					flags=re.S
-				)
-			except Exception:
-				return f"<h3>Error en reemplazo de plantilla:</h3><pre>{traceback.format_exc()}</pre>"
+# 🔹 HTML del formulario con "menú"
+FORM_HTML = """
+<h2>Editor de Canciones</h2>
+<form method="post" enctype="multipart/form-data">
+    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <label for="archivo">O sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
+    <button type="submit" name="accion" value="guardar">Guardar</button>
+    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+</form>
+"""
 
-			# 4️⃣ Guardar archivo .tex
-			try:
-				with open(archivo_salida, "w", encoding="utf-8") as f:
-					f.write(nuevo_tex)
-			except Exception:
-				return f"<h3>Error guardando archivo TEX:</h3><pre>{traceback.format_exc()}</pre>"
-
-			# 5️⃣ Compilar PDF
-			try:
-				logs = compilar_tex_seguro(archivo_salida)
-			except Exception as e:
-				return f"<h3>Error compilando PDF:</h3><pre>{e}</pre>"
-
-			# 6️⃣ Enviar PDF
-			if os.path.exists(pdf_file):
-				return send_file(pdf_file, as_attachment=False)
-			else:
-				return "<h3>PDF no generado.</h3>"
-
-		# Si es GET, mostramos el formulario
-		return render_template_string("""
-        <h2>Generador de PDF de Canciones</h2>
-        <form method="post" enctype="multipart/form-data">
-            <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
-            <label for="archivo">O sube un archivo de texto:</label>
-            <input type="file" name="archivo" id="archivo"><br><br>
-            <input type="submit" value="Generar PDF">
-        </form>
-        """, texto=texto)
-	except Exception:
-		return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
-# Ejecutar servidor seguro en Jupyter eliminado; usamos entrada estándar de Python/WSGI
 @app.route("/health", methods=["GET"])
 def health():
-	return "ok", 200
+    return "ok", 200
 
 if __name__ == "__main__":
-	port = int(os.environ.get("PORT", "8000"))
-	app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    port = int(os.environ.get("PORT", "8000"))
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
