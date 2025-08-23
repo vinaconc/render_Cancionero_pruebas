@@ -1,19 +1,19 @@
 \documentclass[a4paper,twoside,openany]{book}
 
-% --- Configuración de codificación y idioma ---
+% --- Codificación e idioma ---
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 
 % --- Paquetes generales ---
-\usepackage{xcolor} % Necesario para \textcolor.
-\usepackage[chorded]{songs} % Esencial para tu cancionero.
+\usepackage{xcolor}
+\usepackage[chorded]{songs}
 
 % --- Paquetes adicionales ---
-\usepackage{pdfpages} % Para incluir PDFs como la portada.
-\usepackage[normalem]{ulem} % Para subrayado, si lo usas (ej. \uline).
-\usepackage{scrextend} % Necesario si usas \changefontsizes.
+\usepackage{pdfpages}
+\usepackage[normalem]{ulem}
+\usepackage{scrextend}
 
-% --- Configuración de geometría de la página ---
+% --- Geometría ---
 \usepackage[a4paper,
             top=1cm, 
             bottom=2cm, 
@@ -27,21 +27,17 @@
             showframe=false
             ]{geometry}
 
-% --- Configuración de índices ---
+% --- Índices ---
 \usepackage{imakeidx}
 \makeindex[name=tema, title=Índice Temático]
-
 \makeindex[name=titleidx, title=Índice Alfabético de Canciones, columns=1] 
-
-\newindex{titleidx}{cbtitle} 
 
 \newcommand{\indexsongtitle}[1]{%
   \phantomsection
   \index[titleidx]{#1}%
-
 }
 
-% --- Configuración de hipervínculos ---
+% --- Hipervínculos ---
 \usepackage{hyperref} 
 \hypersetup{
     colorlinks=true,
@@ -56,10 +52,10 @@
     linktocpage=true
 }
 
-% --- Configuración de fuentes ---
+% --- Tamaño de fuente ---
 \changefontsizes[14pt]{11pt} 
 
-% --- Configuraciones específicas del paquete 'songs' ---
+% --- Configuraciones del paquete 'songs' ---
 \noversenumbers
 \baselineadj=-10pt plus 10pt minus 10pt
 \renewcommand{\clineparams}{
@@ -68,47 +64,41 @@
   \lineskip=1pt
 }
 
-% --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
-% Implementación del comando \diagram con letras ENCUADRADAS fuera del marco de la estrofa
-\newcommand\diagram[2]{%
-  \begin{verse}
-    \hspace*{-2cm}\fbox{\textbf{#1}}\hspace{2.5cm}
-    #2
-  \end{verse}
+% --- Redefinir estrofas para letra al margen ---
+\makeatletter
+\renewcommand{\printverse}[1]{%
+  \begingroup
+  \setlength{\parindent}{0pt}%
+  \setlength{\leftskip}{0pt}%
+  \setlength{\parskip}{0.5em}%
+  \@for\verse@line:=#1\do{%
+    \ifx\verse@line\empty\else
+      \noindent
+      \llap{\textbf{\verse@num}\hspace{1em}}%
+      \verse@line\par
+    \fi
+  }%
+  \endgroup
 }
-
-% Comando esquema alternativo con letras encuadradas fuera del marco
-\newcommand\esquema[2]{%
-  \begin{verse}
-    \hspace*{-2cm}\fbox{\textbf{#1}}\hspace{2.5cm}
-    #2
-  \end{verse}
-}
+\makeatother
 
 % --- Resto de comandos personalizados ---
 \newcommand{\version}{}
-\newsongkey{v}{\def\version{}}
-               {\def\version{Versión: #1\par}}
+\newsongkey{v}{\def\version{}}{\def\version{Versión: #1\par}}
 
 \newcommand\toctitle{}
 \makeatletter
 \gdef\toclink{%
-  \@ifundefined{href}{}{%
-    song\theSB@songsnum-\thesongnum.\ifnum\value{section}=0 1\else2\fi%
-  }%
+  \@ifundefined{href}{}%
 }
 \makeatother
 
-%indice de secciones
 \newcommand\addtotoc[1]{\addtocontents{toc}{\protect\contentsline
  {\ifnum\value{section}>0sub\fi section}%
 {\numberline\thesongnum#1}%
  {\thepage}%
- {\toclink}%
-}}
-\newsongkey{toc}
-{\def\toctitle{\resettitles\addtotoc\songtitle}}
-{\def\toctitle{\addtotoc{#1}}}
+ {\toclink}}}
+\newsongkey{toc}{\def\toctitle{\resettitles\addtotoc\songtitle}}{\def\toctitle{\addtotoc{#1}}}
 \renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
 
 \newcommand{\indexword}[1]{\textcolor{blue}{#1}\index{#1}}
@@ -117,13 +107,12 @@
 
 \begin{document}
 
-\frontmatter % Inicia la sección preliminar (numeración romana por defecto, si aplica)
+\frontmatter
+\tableofcontents{\thispagestyle{empty}}
+\clearpage
 
-\tableofcontents{\thispagestyle{empty}} % El índice también sin número de página
-\clearpage % Mueve a la siguiente página
-
-\mainmatter % Inicia la sección principal (reinicia la numeración a 1, arábiga)
-\pagestyle{plain} % Establece el estilo de página para el cuerpo principal.
+\mainmatter
+\pagestyle{plain}
 
 \renewcommand{\indexname}{Índice Temático}
 \renewcommand{\everychorus}{\textnote{CORO:}}
