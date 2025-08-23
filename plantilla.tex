@@ -3,6 +3,7 @@
 % --- Configuración de codificación y idioma ---
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
+\usepackage{calc}
 
 % --- Paquetes generales ---
 \usepackage{xcolor} % Necesario para \textcolor.
@@ -73,7 +74,7 @@
 \newcommand\diagram[2]{%
   \noindent
   \fbox{\parbox{2cm}{\centering \textbf{#1}}} \hspace{0.5cm} 
-  \fbox{\parbox{13.5cm}{#2}}
+  \fbox{\parbox{\linewidth-2.5cm}{#2}}%
   \par\vspace{0.5cm}
 }
 
@@ -135,3 +136,4 @@
 
 \printindex[titleidx]
 \end{document}
+
