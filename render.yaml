@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cancionero-pdf
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+
+buildCommand: ./install-tex.sh && pdflatex main.tex
