@@ -3,7 +3,6 @@
 % --- Configuración de codificación y idioma ---
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
-\usepackage{calc}
 
 % --- Paquetes generales ---
 \usepackage{xcolor} % Necesario para \textcolor.
@@ -13,7 +12,6 @@
 \usepackage{pdfpages} % Para incluir PDFs como la portada.
 \usepackage[normalem]{ulem} % Para subrayado, si lo usas (ej. \uline).
 \usepackage{scrextend} % Necesario si usas \changefontsizes.
-\usepackage[most]{tcolorbox}
 
 % --- Configuración de geometría de la página ---
 \usepackage[a4paper,
@@ -71,17 +69,19 @@
 }
 
 % --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
-% Implementación básica del comando \diagram usando solo comandos estándar
-\renewcommand\diagram[2]{%
+% Implementación del comando \diagram SIN encuadres, solo con letras identificadoras
+\newcommand\diagram[2]{%
   \noindent
-  \fbox{\textbf{#1}}\hspace{0.5cm}#2\par\vspace{0.5cm}%
+  \textbf{#1} \hspace{0.5cm} 
+  #2
+  \par\vspace{0.5cm}
 }
 
-% Comando esquema alternativo
+% Comando esquema alternativo sin encuadres
 \newcommand\esquema[2]{%
   \noindent
-  \fbox{\parbox{2cm}{\centering \textbf{#1}}} \hspace{0.5cm} 
-  \fbox{\parbox{13.5cm}{#2}}
+  \textbf{#1} \hspace{0.5cm} 
+  #2
   \par\vspace{0.5cm}
 }
 
@@ -135,6 +135,3 @@
 
 \printindex[titleidx]
 \end{document}
-
-
-
