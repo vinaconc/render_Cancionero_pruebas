@@ -5,6 +5,8 @@ import subprocess
 import re
 import unicodedata
 
+
+
 app = Flask(__name__)
 
 archivo_plantilla = "plantilla.tex"
@@ -745,6 +747,11 @@ FORM_HTML = """
 def health():
     return "ok", 200
 
+@app.route("/ver_log")
+def ver_log():
+    return send_file("plantilla.log", mimetype="text/plain")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
