@@ -69,20 +69,20 @@
 }
 
 % --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
-% Implementación del comando \diagram SIN encuadres, solo con letras identificadoras
+% Implementación del comando \diagram con letras FUERA del marco de la estrofa
 \newcommand\diagram[2]{%
-  \noindent
-  \textbf{#1} \hspace{0.5cm} 
-  #2
-  \par\vspace{0.5cm}
+  \begin{verse}
+    \hspace*{-2cm}\textbf{#1}\hspace{2.5cm}
+    #2
+  \end{verse}
 }
 
-% Comando esquema alternativo sin encuadres
+% Comando esquema alternativo con letras fuera del marco
 \newcommand\esquema[2]{%
-  \noindent
-  \textbf{#1} \hspace{0.5cm} 
-  #2
-  \par\vspace{0.5cm}
+  \begin{verse}
+    \hspace*{-2cm}\textbf{#1}\hspace{2.5cm}
+    #2
+  \end{verse}
 }
 
 % --- Resto de comandos personalizados ---
