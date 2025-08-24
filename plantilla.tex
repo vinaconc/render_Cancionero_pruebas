@@ -6,8 +6,8 @@
 
 % --- Paquetes generales ---
 \usepackage{xcolor}
-% Usa la opción 'versenums' para que las estrofas se identifiquen con números
-\usepackage[chorded, verse]{songs} 
+% Usar las opciones 'verse' y 'title' para numerar versos y títulos
+\usepackage[chorded, verse]{songs}
 
 % --- Paquetes adicionales ---
 \usepackage{pdfpages}
@@ -30,15 +30,16 @@
             showframe=false
             ]{geometry}
 
-% --- Configuración para que no se encuadren las estrofas ---
-\renewcommand{\stanza}[1]{\par\medskip} % elimina el recuadro
-\renewcommand{\stanzaindent}{0pt}       % sin sangría
-\renewcommand{\stanzahead}[1]{%         % letras de estrofa en margen
-  \makebox[0pt][r]{\textbf{#1}\quad}%
+% --- Configuraciones clave del paquete 'songs' ---
+% Esto elimina los recuadros y ajusta la alineación
+\renewcommand{\versehead}[1]{%
+  \llap{\textbf{#1}\hskip 1em}%
 }
 
-% --- Configuraciones del paquete 'songs' ---
-% Desactivar la numeración automática de los versos (si no la quieres)
+\renewcommand{\versesep}{\bigskip}
+\renewcommand{\chordfont}{\upshape} % Fuente de los acordes
+
+% Desactivar la numeración de los versos si no la quieres
 \noversenumbers 
 \baselineadj=-10pt plus 10pt minus 10pt
 \renewcommand{\clineparams}{
@@ -47,26 +48,7 @@
     \lineskip=1pt
 }
 
-% === CONFIGURACIONES CLAVE PARA LA IDENTIFICACIÓN DE ESTROFAS ===
-% Este comando convierte los números de verso a letras y las pone en el margen
-% Para usarlo, simplemente agrega '\versenumsAsLetters' en tu código
-\makeatletter
-\def\versenumsAsLetters#1{\@arabicchar@true\count@#1
-  \@whiledim\count@>\z@\do{%
-    \advance\count@\m@ne
-    \edef\next@char{\char\expandafter\strip@prefix\meaning\count@}%
-    \edef\v@string{\next@char\v@string}%
-  }%
-  \def\v@next{}%
-  \def\v@prev{}%
-  \edef\v@out{\unexpanded\expandafter{\@v@num\v@string}}%
-  \expandafter\let\expandafter\v@out\expandafter\@gobble\v@out
-  \expandafter\let\expandafter\@v@num\expandafter\@v@num\expandafter\v@string%
-}
-\makeatother
-
-% === COMANDOS PERSONALIZADOS DEL USUARIO ===
-% ... (Mantén el resto de tus comandos personalizados como están) ...
+% --- Comandos personalizados del usuario ---
 \newcommand{\version}{}
 \newsongkey{v}{\def\version{}}{\def\version{Versión: #1\par}}
 \renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
@@ -74,7 +56,6 @@
 
 % --- INICIO DEL DOCUMENTO ---
 \begin{document}
-
 \frontmatter
 \tableofcontents{\thispagestyle{empty}}
 \clearpage
@@ -91,4 +72,3 @@
 
 \printindex[titleidx]
 \end{document}
-
