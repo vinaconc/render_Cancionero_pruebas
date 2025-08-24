@@ -30,6 +30,12 @@
             showframe=false
             ]{geometry}
 
+
+% --- Eliminar recuadros alrededor de estrofas ---
+\setlength{\verseboxrule}{0pt}  % Ancho de la línea del recuadro
+\setlength{\verserule}{0pt}     % Regla vertical al inicio de la estrofa
+\setlength{\verseleftskip}{0pt} % Sangría izquierda del recuadro
+\setlength{\verserightskip}{0pt}% Sangría derecha del recuadro
 % --- Configuraciones clave del paquete 'songs' ---
 % Esto elimina los recuadros y ajusta la alineación
 \renewcommand{\versehead}[1]{%
@@ -72,3 +78,4 @@
 
 \printindex[titleidx]
 \end{document}
+
