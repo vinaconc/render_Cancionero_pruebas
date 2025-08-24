@@ -30,6 +30,13 @@
             showframe=false
             ]{geometry}
 
+% --- Configuración para que no se encuadren las estrofas ---
+\renewcommand{\stanza}[1]{\par\medskip} % elimina el recuadro
+\renewcommand{\stanzaindent}{0pt}       % sin sangría
+\renewcommand{\stanzahead}[1]{%         % letras de estrofa en margen
+  \makebox[0pt][r]{\textbf{#1}\quad}%
+}
+
 % --- Configuraciones del paquete 'songs' ---
 % Desactivar la numeración automática de los versos (si no la quieres)
 \noversenumbers 
@@ -84,3 +91,4 @@
 
 \printindex[titleidx]
 \end{document}
+
