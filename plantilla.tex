@@ -60,6 +60,12 @@
 \renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
 \newcommand{\indexword}[1]{\textcolor{blue}{#1}\index{#1}}
 
+\renewenvironment{verse}[1][\unskip]{%
+  \par\begingroup
+  \raggedright
+  \let\\=\@normalcr
+}{\par\endgroup}
+
 % --- INICIO DEL DOCUMENTO ---
 \begin{document}
 \frontmatter
@@ -81,5 +87,6 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
