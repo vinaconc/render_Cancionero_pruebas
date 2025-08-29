@@ -1,21 +1,17 @@
 \documentclass[a4paper,twoside,openany]{book}
-
 % --- Codificación e idioma ---
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
-
 % --- Paquetes generales ---
 \usepackage{xcolor}
-\usepackage[chorded, verse]{songs} % Mantener opción verse para marcos
-
+% Usar las opciones 'verse' y 'title' para numerar versos y títulos
+\usepackage[chorded, verse]{songs}
 % --- Paquetes adicionales ---
 \usepackage{pdfpages}
 \usepackage[normalem]{ulem}
 \usepackage{scrextend}
 \usepackage{imakeidx}
-\makeindex[name=titleidx, title=Índice de títulos]
 \usepackage{hyperref} 
-
 % --- Geometría ---
 \usepackage[a4paper,
             top=1cm, 
@@ -29,19 +25,19 @@
             textheight=23.42cm,
             showframe=false
             ]{geometry}
-
-% --- Configuración para marcos en versos (activar marcos con línea fina) ---
-\setlength{\verseboxrule}{0.5pt}  % Ancho de la línea del recuadro
-\setlength{\verserule}{0.5pt}     % Línea vertical al inicio de la estrofa
-\setlength{\verseleftskip}{0pt}   % Sin sangría izquierda extra
-\setlength{\verserightskip}{0pt}  % Sin sangría derecha extra
-
-% --- Configuraciones del paquete songs ---
+% --- Eliminar recuadros alrededor de estrofas ---
+\setlength{\verseboxrule}{0pt}  % Ancho de la línea del recuadro
+\setlength{\verserule}{0pt}     % Regla vertical al inicio de la estrofa
+\setlength{\verseleftskip}{0pt} % Sangría izquierda del recuadro
+\setlength{\verserightskip}{0pt}% Sangría derecha del recuadro
+% --- Configuraciones clave del paquete 'songs' ---
+% Esto elimina los recuadros y ajusta la alineación
 \renewcommand{\versehead}[1]{%
   \llap{\textbf{#1}\hskip 1em}%
 }
 \renewcommand{\versesep}{\bigskip}
-\renewcommand{\chordfont}{\upshape} 
+\renewcommand{\chordfont}{\upshape} % Fuente de los acordes
+% Desactivar la numeración de los versos si no la quieres
 \noversenumbers 
 \baselineadj=-10pt plus 10pt minus 10pt
 \renewcommand{\clineparams}{
@@ -49,46 +45,28 @@
     \lineskiplimit=35pt
     \lineskip=1pt
 }
-
 % --- Comandos personalizados del usuario ---
 \newcommand{\version}{}
 \newsongkey{v}{\def\version{}}{\def\version{Versión: #1\par}}
 \renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
 \newcommand{\indexword}[1]{\textcolor{blue}{#1}\index{#1}}
-
 \renewenvironment{verse}[1][\unskip]{%
   \par\begingroup
   \raggedright
   \let\=\@normalcr
 }{\par\endgroup}
-
-\renewenvironment{verse}[1][\unskip]{%
-  \par\begingroup
-  \raggedright
-  \setlength{\leftskip}{5mm}   % Sangría izquierda total
-  \setlength{\rightskip}{10mm} % Sangría derecha total
-  \let\=\@normalcr
-}{\par\endgroup}
-
 % --- INICIO DEL DOCUMENTO ---
 \begin{document}
-
 \frontmatter
 \tableofcontents{\thispagestyle{empty}}
 \clearpage
-
 \mainmatter
 \pagestyle{plain}
-
 \renewcommand{\everychorus}{\textnote{CORO:}}
 \renewcommand{\chorusfont}{\it}
 \renewcommand{\printchord}[1]{\rmfamily\bf#1}
-
-% Aquí empieza el cancionero, ejemplo con entorno songs
-% Recuerde evitar multicols o columnas en esta sección para evitar rupturas de caja
+\renewcommand{\versehead}[1]{\llap{\textbf{#1}\hskip 1em}} % Opcional: Si quieres que los títulos de las estrofas estén en negrita sin recuadro
 % --- INICIO CANCIONERO ---
 % --- FIN CANCIONERO ---
 \printindex[titleidx]
 \end{document}
-
-
