@@ -7,15 +7,14 @@
 
 % --- Paquetes generales ---
 \usepackage{xcolor}
-% Usar solo la opción 'chorded' para evitar error 'verse' desconocido
-\usepackage[chorded]{songs}
+\usepackage[chorded]{songs} % Sin la opción 'verse' para evitar error
 
 % --- Paquetes adicionales ---
 \usepackage{pdfpages}
 \usepackage[normalem]{ulem}
 \usepackage{scrextend}
 \usepackage{imakeidx}
-\makeindex[name=titleidx, title=Índice de títulos] % Declaración del índice personalizado
+\makeindex[name=titleidx, title=Índice de títulos]
 \usepackage{hyperref} 
 
 % --- Geometría ---
@@ -32,22 +31,20 @@
             showframe=false
             ]{geometry}
 
-% --- Eliminar recuadros alrededor de estrofas ---
-\setlength{\verseboxrule}{0pt}  % Ancho de la línea del recuadro
-\setlength{\verserule}{0pt}     % Regla vertical al inicio de la estrofa
-\setlength{\verseleftskip}{0pt} % Sangría izquierda del recuadro
-\setlength{\verserightskip}{0pt}% Sangría derecha del recuadro
+% --- Eliminar configuraciones que generan error ---
+% Se han eliminado las configuraciones y comandos que dependen de la opción 'verse' no soportada
+% \setlength{\verseboxrule}{0pt}
+% \setlength{\verserule}{0pt}
+% \setlength{\verseleftskip}{0pt}
+% \setlength{\verserightskip}{0pt}
+% \renewcommand{\versehead}[1]{%
+%  \llap{\textbf{#1}\hskip 1em}%
+% }
+% \renewcommand{\chordfont}{\upshape}
 
-% --- Configuraciones clave del paquete 'songs' ---
-\renewcommand{\versehead}[1]{%
-  \llap{\textbf{#1}\hskip 1em}%
-}
+% --- Otras configuraciones ---
 \renewcommand{\versesep}{\bigskip}
-\renewcommand{\chordfont}{\upshape} % Fuente de los acordes
-
-% Desactivar la numeración de los versos si no la quieres
 \noversenumbers 
-
 \baselineadj=-10pt plus 10pt minus 10pt
 \renewcommand{\clineparams}{
     \baselineskip=35pt
@@ -80,12 +77,11 @@
 \renewcommand{\everychorus}{\textnote{CORO:}}
 \renewcommand{\chorusfont}{\it}
 \renewcommand{\printchord}[1]{\rmfamily\bf#1}
-\renewcommand{\versehead}[1]{\llap{\textbf{#1}\hskip 1em}} % Opcional: títulos negrita sin recuadro
+\renewcommand{\versehead}[1]{\llap{\textbf{#1}\hskip 1em}} 
 
-% --- INICIO CANCIONERO ---
-% --- FIN CANCIONERO ---
+% --- CONTENIDO DE LAS CANCIONES AQUÍ ---
 
-% Imprime índice personalizado de títulos (ubicado antes de \end{document})
+% --- IMPRIME ÍNDICE PERSONALIZADO DE TÍTULOS ---
 \printindex[titleidx]
 
 \end{document}
