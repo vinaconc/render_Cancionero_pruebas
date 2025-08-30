@@ -677,13 +677,12 @@ def index():
 
             # 👉 GUARDAR o GUARDAR COMO
             if accion in ("guardar", "guardar_como"):
-    			texto = request.form.get("texto", "")  # <-- acá debe tomar el texto editado
-    				try:
-        				with open(archivo_salida, "w", encoding="utf-8") as f:
-            				f.write(texto)
-    				except Exception:
-        	return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
-    		return render_template_string(FORM_HTML, texto=texto)
+                try:
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
+                except Exception:
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                return render_template_string(FORM_HTML, texto=texto)
 
             # 👉 GENERAR PDF (flujo original tuyo)
             if accion == "generar_pdf":
@@ -738,7 +737,7 @@ FORM_HTML = """
 
     <!-- Menú de acciones -->
     <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
-    <button type="submit" name="accion" value="guardar_como">Guardar</button>
+    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
