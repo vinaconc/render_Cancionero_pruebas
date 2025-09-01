@@ -657,91 +657,100 @@ def compilar_tex_seguro(tex_path):
 @app.route("/", methods=["GET", "POST"])
 def index():
     texto = ""
-
     try:
         if request.method == "POST":
             accion = request.form.get("accion")
-
             # 👉 ABRIR
             if accion == "abrir":
                 if os.path.exists(archivo_salida):
                     with open(archivo_salida, "r", encoding="utf-8") as f:
                         texto = f.read()
                 return render_template_string(FORM_HTML, texto=texto)
-
             # 👉 Obtener texto del formulario o archivo
             texto = request.form.get("texto", "")
             uploaded_file = request.files.get("archivo")
             if uploaded_file and uploaded_file.filename:
                 texto = uploaded_file.read().decode("utf-8")
-
             # 👉 GUARDAR o GUARDAR COMO
             if accion in ("guardar", "guardar_como"):
                 try:
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                    # Si el usuario indicó nombre de archivo, guardar como ese nombre
+                    nombre_archivo = request.form.get("nombre_archivo", "").strip()
+                    carpeta_destino = os.path.abspath(".")  # Carpeta segura
+                    if not nombre_archivo or accion == "guardar":
+                        ruta_guardado = archivo_salida
+                    else:
+                        # Sólo nombres básicos permitidos (evita rutas maliciosas)
+                        nombre_archivo = re.sub(r'[\\/]', '', nombre_archivo)
+                        ruta_guardado = os.path.join(carpeta_destino, nombre_archivo)
+                    with open(ruta_guardado, "w", encoding="utf-8") as f:
                         f.write(texto)
                 except Exception:
                     return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
                 return render_template_string(FORM_HTML, texto=texto)
-
             # 👉 GENERAR PDF (flujo original tuyo)
             if accion == "generar_pdf":
                 try:
                     # 1️⃣ Procesar canciones
                     contenido_canciones = convertir_songpro(texto)
-
                     # 2️⃣ Generar índice temático
                     indice_tematica = generar_indice_tematica()
-
                     # 3️⃣ Reemplazo en la plantilla
                     def reemplazar(match):
                         return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
-
                     nuevo_tex = re.sub(
                         r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
                         reemplazar,
                         plantilla,
                         flags=re.S
                     )
-
                     # 4️⃣ Guardar TEX
                     with open(archivo_salida, "w", encoding="utf-8") as f:
                         f.write(nuevo_tex)
-
                     # 5️⃣ Compilar PDF
                     logs = compilar_tex_seguro(archivo_salida)
-
-                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+                    pdf_file = os.path.splitext(archivo_salida) + ".pdf"
                     if os.path.exists(pdf_file):
                         return send_file(pdf_file, as_attachment=False)
                     else:
                         return "<h3>PDF no generado.</h3>"
-
                 except Exception:
                     return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
-
         # GET inicial
         return render_template_string(FORM_HTML, texto=texto)
-
     except Exception:
         return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
 
 
-# 🔹 HTML con "menú" y opción de generar PDF
-FORM_HTML = """
-<h2>Editor de Canciones</h2>
 <form method="post" enctype="multipart/form-data">
-    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
-    <label for="archivo">O sube un archivo de texto:</label>
-    <input type="file" name="archivo" id="archivo"><br><br>
-
-    <!-- Menú de acciones -->
-    <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
-    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
+    <textarea name="texto" rows="20" cols="80">{{ texto }}</textarea><br>
+    <label for="archivo">Sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br>
+    <!-- Campo para nombre del archivo, visible solo en "Guardar como" -->
+    <div id="guardarComoDiv" style="display:none;">
+        <label for="nombre_archivo">Nombre para guardar (ejemplo: miarchivo.txt):</label>
+        <input type="text" name="nombre_archivo" id="nombre_archivo"><br>
+    </div>
+    <button type="submit" name="accion" value="guardar">Guardar</button>
+    <button type="button" onclick="mostrarGuardarComo()">Guardar como</button>
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
-"""
+<script>
+function mostrarGuardarComo() {
+    document.getElementById('guardarComoDiv').style.display = 'block';
+    // Cambia el tipo de ‘Guardar como’ a submit cuando está listo
+    var btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.name = 'accion';
+    btn.value = 'guardar_como';
+    btn.textContent = 'Confirmar guardar como';
+    document.forms.appendChild(btn);
+}
+</script>
+Esto permite que el usuario escriba el nombre del nuevo archivo cuando selecciona “Guardar como”.
+
+
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -754,6 +763,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
