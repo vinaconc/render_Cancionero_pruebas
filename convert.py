@@ -523,4 +523,209 @@ def convertir_songpro(texto):
                 i += 1
                 continue
 
-    cerrar_bloque
+    cerrar_bloque()
+    cerrar_cancion()
+    if seccion_abierta:
+        resultado.append(r'\end{songs}')
+
+    return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+
+
+def normalizar(palabra):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', palabra.lower())
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def convertir_a_latina(acorde):
+    if '/' in acorde:
+        parte_superior, bajo = acorde.split('/')
+        parte_superior = equivalencias_latinas.get(parte_superior, parte_superior)
+        bajo = equivalencias_latinas.get(bajo, bajo)
+        return f"{parte_superior}/{bajo}"
+    return equivalencias_latinas.get(acorde, acorde)
+
+def limpiar_titulo_para_label(titulo):
+    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
+    titulo = unicodedata.normalize('NFD', titulo)
+    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
+    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
+    return titulo.replace(' ', '-')
+
+def generar_indice_tematica():
+    if not indice_tematica_global:
+        return ""
+
+    resultado = [r"\section*{Índice Temático}", r"\begin{itemize}"]
+
+    for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
+        canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
+        enlaces = [
+            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c}}}"
+            for c in canciones
+        ]
+        resultado.append(rf"  \item \textbf{{{palabra.title()}}} --- {', '.join(enlaces)}")
+
+    resultado.append(r"\end{itemize}")
+    return '\n'.join(resultado)
+
+def compilar_tex_seguro(tex_path):
+    tex_dir = os.path.dirname(tex_path) or "."
+    tex_file = os.path.basename(tex_path)
+
+    try:
+        logs = ""
+        result = subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_file],
+            capture_output=True,
+            text=True,
+            cwd=tex_dir
+        )
+        logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
+        if result.returncode != 0:
+            raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
+
+        base = os.path.splitext(tex_file)[0]
+        posibles_indices = [
+            (f"{base}.idx", None),
+            (f"{base}.tema.idx", f"{base}.tema.ind"),
+            (f"{base}.cbtitle", f"{base}.cbtitle.ind"),
+        ]
+        for entrada, salida in posibles_indices:
+            entrada_path = os.path.join(tex_dir, entrada)
+            if os.path.exists(entrada_path):
+                cmd = ["makeindex", entrada]
+                if salida is not None:
+                    cmd = ["makeindex", "-o", salida, entrada]
+                mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
+                logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
+
+        result2 = subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_file],
+            capture_output=True,
+            text=True,
+            cwd=tex_dir
+        )
+        logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
+        if result2.returncode != 0:
+            raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
+
+        pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
+        if not os.path.exists(pdf_file):
+            raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
+
+        return logs
+
+    except Exception as e:
+        raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    texto = ""
+    filename = archivo_por_defecto
+    try:
+        if request.method == "POST":
+            accion = request.form.get("accion")
+            filename = request.form.get("filename", archivo_por_defecto)
+            uploaded_file = request.files.get("archivo")
+
+            # Priorizar el archivo subido si existe
+            if uploaded_file and uploaded_file.filename:
+                texto = uploaded_file.read().decode("utf-8")
+                filename = uploaded_file.filename
+                return render_template_string(FORM_HTML, texto=texto, filename=filename, mensaje_exito=f"Archivo '{filename}' cargado exitosamente.")
+
+            if accion == "guardar":
+                try:
+                    with open(filename, "w", encoding="utf-8") as f:
+                        f.write(request.form.get("texto", ""))
+                    return render_template_string(FORM_HTML, texto=request.form.get("texto", ""), filename=filename, mensaje_exito=f"Archivo '{filename}' guardado con éxito.")
+                except Exception:
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+
+            if accion == "abrir":
+                if os.path.exists(filename):
+                    with open(filename, "r", encoding="utf-8") as f:
+                        texto = f.read()
+                    return render_template_string(FORM_HTML, texto=texto, filename=filename, mensaje_exito=f"Archivo '{filename}' cargado con éxito.")
+                else:
+                    return render_template_string(FORM_HTML, texto="", filename=filename, mensaje_error=f"El archivo '{filename}' no existe.")
+
+            if accion == "generar_pdf":
+                try:
+                    contenido_canciones = convertir_songpro(request.form.get("texto", ""))
+                    indice_tematica = generar_indice_tematica()
+
+                    def reemplazar(match):
+                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+
+                    # Usar un nombre de archivo fijo para la compilación del PDF para evitar problemas
+                    archivo_salida_tex = "cancionero_compilado.tex"
+                    nuevo_tex = re.sub(
+                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                        reemplazar,
+                        plantilla,
+                        flags=re.S
+                    )
+                    with open(archivo_salida_tex, "w", encoding="utf-8") as f:
+                        f.write(nuevo_tex)
+
+                    logs = compilar_tex_seguro(archivo_salida_tex)
+
+                    pdf_file = os.path.splitext(archivo_salida_tex)[0] + ".pdf"
+                    if os.path.exists(pdf_file):
+                        return send_file(pdf_file, as_attachment=False)
+                    else:
+                        return f"<h3>PDF no generado.</h3><pre>Logs de compilación:\n{logs}</pre>"
+
+                except Exception:
+                    return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
+
+        if 'filename' in request.args:
+            filename = request.args.get('filename')
+            if os.path.exists(filename):
+                with open(filename, "r", encoding="utf-8") as f:
+                    texto = f.read()
+        return render_template_string(FORM_HTML, texto=texto, filename=filename)
+
+    except Exception:
+        return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
+
+FORM_HTML = """
+<h2>Editor de Canciones</h2>
+{% if mensaje_exito %}
+    <p style="color: green;">{{ mensaje_exito }}</p>
+{% endif %}
+{% if mensaje_error %}
+    <p style="color: red;">{{ mensaje_error }}</p>
+{% endif %}
+<form method="post" enctype="multipart/form-data">
+    <label for="filename">Nombre del archivo:</label>
+    <input type="text" id="filename" name="filename" value="{{ filename }}"><br><br>
+
+    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+
+    <label for="archivo">O cargar un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
+
+    <button type="submit" name="accion" value="guardar">Guardar</button>
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+</form>
+"""
+
+@app.route("/health", methods=["GET"])
+def health():
+    return "ok", 200
+
+@app.route("/ver_log")
+def ver_log():
+    log_file = "cancionero_compilado.log"
+    if os.path.exists(log_file):
+        return send_file(log_file, mimetype="text/plain")
+    else:
+        return f"<h3>No se encontró el archivo de log '{log_file}'.</h3>"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "8000"))
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
