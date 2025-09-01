@@ -669,8 +669,8 @@ FORM_HTML = """
     <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
     
     <div style="margin-top: 10px; margin-bottom: 10px;">
-#    	<label for="nombre_archivo">Nombre del archivo:</label>
-#       <input type="text" name="nombre_archivo" id="nombre_archivo" value="{{ nombre_archivo_actual }}">
+    	<label for="nombre_archivo">Nombre del archivo:</label>
+        <input type="text" name="nombre_archivo" id="nombre_archivo" value="{{ nombre_archivo_actual }}">
         <label for="archivo">O sube un archivo:</label>
         <input type="file" name="archivo" id="archivo">
     </div>
@@ -719,7 +719,7 @@ def compilar_tex_seguro(archivo_tex):
 def index():
     texto = ""
     mensaje = ""
-	log = ""
+	
     nombre_archivo_actual = "cancionero.txt"
     try:
         if request.method == "POST":
@@ -800,6 +800,7 @@ def index():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
