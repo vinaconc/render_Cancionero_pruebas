@@ -748,9 +748,6 @@ function mostrarGuardarComo() {
     document.forms.appendChild(btn);
 }
 </script>
-Esto permite que el usuario escriba el nombre del nuevo archivo cuando selecciona “Guardar como”.
-
-
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -763,8 +760,3 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
-
-
-
-
