@@ -675,13 +675,15 @@ def index():
             if uploaded_file and uploaded_file.filename:
                 texto = uploaded_file.read().decode("utf-8")
 
-            if accion == "guardar":
+            # 👉 GUARDAR o GUARDAR COMO
+            if accion in ("guardar", "guardar_como"):
                 try:
-                    with open(filename, "w", encoding="utf-8") as f:
-                        f.write(request.form.get("texto", ""))
-                    return render_template_string(FORM_HTML, texto=request.form.get("texto", ""), filename=filename, mensaje_exito=f"Archivo '{filename}' guardado con éxito.")
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
                 except Exception:
-                    
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                return render_template_string(FORM_HTML, texto=texto)
+
             # 👉 GENERAR PDF (flujo original tuyo)
             if accion == "generar_pdf":
                 try:
