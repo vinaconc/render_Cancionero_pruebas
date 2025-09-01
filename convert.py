@@ -719,6 +719,7 @@ def compilar_tex_seguro(archivo_tex):
 def index():
     texto = ""
     mensaje = ""
+	log = ""
     nombre_archivo_actual = "cancionero.txt"
     try:
         if request.method == "POST":
@@ -790,6 +791,8 @@ def index():
                 except Exception:
                     return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
 
+        # GET inicial
+        return render_template_string(FORM_HTML, texto=texto, mensaje=mensaje, logs=logs)
 
     except Exception:
         return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
