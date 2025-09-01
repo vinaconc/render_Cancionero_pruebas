@@ -9,9 +9,6 @@ import unicodedata
 
 app = Flask(__name__)
 
-CARPETA_LOCAL = os.path.join(os.getcwd(), "textos")  
-os.makedirs(CARPETA_LOCAL, exist_ok=True)  
-
 archivo_plantilla = "plantilla.tex"
 
 archivo_salida = "cancionero_web.tex"
@@ -599,104 +596,166 @@ texto_ejemplo = """
  """
 
 def compilar_tex_seguro(tex_path):
-    """
-    Compila un archivo .tex y devuelve el log completo.
-    Muestra errores y advertencias sin detener el servidor.
-    """
-    try:
-        tex_dir = os.path.dirname(tex_path)
-        tex_file = os.path.basename(tex_path)
+	"""
+	Compila un archivo .tex y devuelve el log completo.
+	Muestra errores y advertencias sin detener el servidor.
+	"""
+	tex_dir = os.path.dirname(tex_path) or "."
+	tex_file = os.path.basename(tex_path)
 
-        # Comando para compilar (dos pasadas para índice, refs, etc.)
-        cmd = [
-            "pdflatex",
-            "-interaction=nonstopmode",  # No se detiene en errores
-            "-halt-on-error",            # Detiene en error crítico
-            tex_file
-        ]
+	try:
+		# Ejecutar pdflatex -> makeindex (si aplica) -> pdflatex
+		logs = ""
 
-        log_output = ""
+		# Primera pasada
+		result = subprocess.run(
+			["pdflatex", "-interaction=nonstopmode", tex_file],
+			capture_output=True,
+			text=True,
+			cwd=tex_dir
+		)
+		logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
+		if result.returncode != 0:
+			raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
 
-        # Dos pasadas mínimas
-        for _ in range(2):
-            process = subprocess.Popen(
-                cmd,
-                cwd=tex_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True
-            )
-            stdout, _ = process.communicate()
-            log_output += stdout
+		# makeindex para índices conocidos (si existen)
+		base = os.path.splitext(tex_file)[0]
+		posibles_indices = [
+			(f"{base}.idx", None),
+			(f"{base}.tema.idx", f"{base}.tema.ind"),
+			(f"{base}.cbtitle", f"{base}.cbtitle.ind"),
+		]
+		for entrada, salida in posibles_indices:
+			entrada_path = os.path.join(tex_dir, entrada)
+			if os.path.exists(entrada_path):
+				cmd = ["makeindex", entrada]
+				if salida is not None:
+					cmd = ["makeindex", "-o", salida, entrada]
+				mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
+				logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
-        return log_output
+		# Segunda pasada
+		result2 = subprocess.run(
+			["pdflatex", "-interaction=nonstopmode", tex_file],
+			capture_output=True,
+			text=True,
+			cwd=tex_dir
+		)
+		logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
+		if result2.returncode != 0:
+			raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
 
-    except Exception as e:
-        return f"Error inesperado en compilación: {e}"
-<!doctype html>
-<html>
-<head>
-    <title>Editor LaTeX</title>
-</head>
-<body>
-    <h2>Mini Editor LaTeX</h2>
-    <form method="POST" enctype="multipart/form-data">
-        <label>Seleccionar archivo de texto:</label>
-        <input type="file" name="file" accept=".txt,.tex">
-        <button name="action" value="open">Abrir</button>
-        <button name="action" value="save">Guardar como</button>
-        <button name="action" value="pdf">Convertir a PDF</button>
-        <br><br>
-        <textarea name="content" rows="25" cols="100">{{ content }}</textarea>
-    </form>
-</body>
-</html>
-"""
+		# Verificar que se generó PDF
+		pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
+		if not os.path.exists(pdf_file):
+			raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
 
-# --- Función para compilar tex a PDF ---
-def compilar_tex_seguro(tex_path):
-    tex_dir = os.path.dirname(tex_path)
-    tex_file = os.path.basename(tex_path)
-    cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_file]
-    try:
-        subprocess.run(cmd, cwd=tex_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return os.path.join(tex_dir, tex_file.replace(".tex", ".pdf"))
-    except subprocess.CalledProcessError as e:
-        return None
+		return logs
 
+	except Exception as e:
+		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
 @app.route("/", methods=["GET", "POST"])
 def index():
-    content = ""
-    if request.method == "POST":
-        action = request.form.get("action")
+    texto = ""
 
-        # --- Abrir archivo ---
-        if action == "open" and "file" in request.files:
-            file = request.files["file"]
-            if file:
-                content = file.read().decode("utf-8")
+    try:
+        if request.method == "POST":
+            accion = request.form.get("accion")
 
-        # --- Guardar como ---
-        elif action == "save":
-            content = request.form.get("content", "")
-            return send_file(
-                bytes(content, "utf-8"),
-                as_attachment=True,
-                download_name="archivo_guardado.tex",
-                mimetype="text/plain"
-            )
+            # 👉 ABRIR
+            if accion == "abrir":
+                if os.path.exists(archivo_salida):
+                    with open(archivo_salida, "r", encoding="utf-8") as f:
+                        texto = f.read()
+                return render_template_string(FORM_HTML, texto=texto)
 
-        # --- Convertir a PDF ---
-        elif action == "pdf":
-            content = request.form.get("content", "")
-            temp_tex = "temp.tex"
-            with open(temp_tex, "w", encoding="utf-8") as f:
-                f.write(content)
-            pdf_path = compilar_tex_seguro(temp_tex)
-            if pdf_path:
-                return send_file(pdf_path, as_attachment=True)
+            # 👉 Obtener texto del formulario o archivo
+            texto = request.form.get("texto", "")
+            uploaded_file = request.files.get("archivo")
+            if uploaded_file and uploaded_file.filename:
+                texto = uploaded_file.read().decode("utf-8")
 
-    return render_template_string(HTML, content=content)
+            # 👉 GUARDAR o GUARDAR COMO
+            if accion in ("guardar", "guardar_como"):
+                try:
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
+                except Exception:
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                return render_template_string(FORM_HTML, texto=texto)
+
+            # 👉 GENERAR PDF (flujo original tuyo)
+            if accion == "generar_pdf":
+                try:
+                    # 1️⃣ Procesar canciones
+                    contenido_canciones = convertir_songpro(texto)
+
+                    # 2️⃣ Generar índice temático
+                    indice_tematica = generar_indice_tematica()
+
+                    # 3️⃣ Reemplazo en la plantilla
+                    def reemplazar(match):
+                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+
+                    nuevo_tex = re.sub(
+                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                        reemplazar,
+                        plantilla,
+                        flags=re.S
+                    )
+
+                    # 4️⃣ Guardar TEX
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(nuevo_tex)
+
+                    # 5️⃣ Compilar PDF
+                    logs = compilar_tex_seguro(archivo_salida)
+
+                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+                    if os.path.exists(pdf_file):
+                        return send_file(pdf_file, as_attachment=False)
+                    else:
+                        return "<h3>PDF no generado.</h3>"
+
+                except Exception:
+                    return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
+
+        # GET inicial
+        return render_template_string(FORM_HTML, texto=texto)
+
+    except Exception:
+        return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
+
+
+# 🔹 HTML con "menú" y opción de generar PDF
+FORM_HTML = """
+<h2>Editor de Canciones</h2>
+<form method="post" enctype="multipart/form-data">
+    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <label for="archivo">O sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
+
+    <!-- Menú de acciones -->
+    <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
+    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
+    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+</form>
+"""
+
+@app.route("/descargar", methods=["POST"])
+def descargar():
+    texto = request.form.get("texto", "")
+    nombre_archivo = request.form.get("nombre_archivo", "cancionero.txt")
+
+    # Forzar descarga como archivo .txt
+    return Response(
+        texto,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment;filename={nombre_archivo}"}
+    )
+
 @app.route("/health", methods=["GET"])
 def health():
     return "ok", 200
@@ -708,7 +767,6 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
 
 
 
