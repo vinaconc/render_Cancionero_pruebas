@@ -755,22 +755,43 @@ def index():
                 except Exception:
                     return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
 
-            # 👉 GENERAR PDF
+            # 👉 GENERAR PDF (TU LÓGICA ORIGINAL RESTAURADA)
             if accion == "generar_pdf":
-                # Lógica para generar PDF (se mantiene igual)
                 try:
+                    # 1️⃣ Procesar canciones
                     contenido_canciones = convertir_songpro(texto)
-                    # ...
+
+                    # 2️⃣ Generar índice temático
+                    indice_tematica = generar_indice_tematica()
+
+                    # 3️⃣ Reemplazo en la plantilla
+                    def reemplazar(match):
+                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+
+                    nuevo_tex = re.sub(
+                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                        reemplazar,
+                        plantilla,
+                        flags=re.S
+                    )
+                    # 4️⃣ Guardar TEX en la ruta definida en el preámbulo
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(nuevo_tex)
+
+                    # 5️⃣ Compilar PDF
+                    logs = compilar_tex_seguro(archivo_salida)
+
                     pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
                     if os.path.exists(pdf_file):
                         return send_file(pdf_file, as_attachment=False)
                     else:
-                        return "<h3>PDF no generado.</h3>"
+                        return render_template_string(FORM_HTML, texto=texto, logs=logs)
+
                 except Exception:
                     return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
 
         # GET inicial
-        return render_template_string(FORM_HTML, texto=texto, nombre_archivo_actual=nombre_archivo_actual, mensaje=mensaje)
+        return render_template_string(FORM_HTML, texto=texto, mensaje=mensaje, logs=logs)
 
     except Exception:
         return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
@@ -778,6 +799,7 @@ def index():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
