@@ -704,7 +704,6 @@ FORM_HTML = """
     </div>
 
     <button type="submit" name="accion" value="guardar">Guardar como</button>
-    <button type="submit" name="accion" value="abrir_local">Abrir de la carpeta local</button>
     <button type="submit" name="accion" value="cargar_archivo">Cargar archivo</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
@@ -725,17 +724,6 @@ def index():
         if request.method == "POST":
             accion = request.form.get("accion")
             nombre_archivo_actual = request.form.get("nombre_archivo", "cancionero.txt")
-
-            # 👉 ABRIR DE LA CARPETA LOCAL
-            if accion == "abrir_local":
-                path_archivo = os.path.join(CARPETA_ARCHIVOS, nombre_archivo_actual)
-                if os.path.exists(path_archivo):
-                    with open(path_archivo, "r", encoding="utf-8") as f:
-                        texto = f.read()
-                    mensaje = f"Archivo '{nombre_archivo_actual}' cargado correctamente."
-                else:
-                    mensaje = f"Error: No se encontró el archivo '{nombre_archivo_actual}'."
-                return render_template_string(FORM_HTML, texto=texto, nombre_archivo_actual=nombre_archivo_actual, mensaje=mensaje)
 
             # 👉 CARGAR ARCHIVO DESDE LA PC
             if accion == "cargar_archivo":
@@ -790,6 +778,7 @@ def index():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
