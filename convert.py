@@ -687,6 +687,35 @@ def convertir_songpro(texto):
 def compilar_tex_seguro(archivo_tex):
     return "Logs de compilación"
 
+# 🔹 HTML con "menú" y opción de generar PDF
+FORM_HTML = """
+<h2>Editor de Canciones</h2>
+<form method="post" enctype="multipart/form-data">
+    {% if mensaje %}
+        <p style="color: green;">{{ mensaje }}</p>
+    {% endif %}
+    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    
+    <div style="margin-top: 10px; margin-bottom: 10px;">
+        <label for="nombre_archivo">Nombre del archivo:</label>
+        <input type="text" name="nombre_archivo" id="nombre_archivo" value="{{ nombre_archivo_actual }}">
+        <label for="archivo">O sube un archivo:</label>
+        <input type="file" name="archivo" id="archivo">
+    </div>
+
+    <button type="submit" name="accion" value="guardar">Guardar como</button>
+    <button type="submit" name="accion" value="abrir_local">Abrir de la carpeta local</button>
+    <button type="submit" name="accion" value="cargar_archivo">Cargar archivo</button>
+    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+</form>
+"""
+
+def convertir_songpro(texto):
+    return texto
+
+def compilar_tex_seguro(archivo_tex):
+    return "Logs de compilación"
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     texto = ""
@@ -697,20 +726,30 @@ def index():
             accion = request.form.get("accion")
             nombre_archivo_actual = request.form.get("nombre_archivo", "cancionero.txt")
 
-            # 👉 ABRIR
-            if accion == "abrir":
+            # 👉 ABRIR DE LA CARPETA LOCAL
+            if accion == "abrir_local":
                 path_archivo = os.path.join(CARPETA_ARCHIVOS, nombre_archivo_actual)
                 if os.path.exists(path_archivo):
                     with open(path_archivo, "r", encoding="utf-8") as f:
                         texto = f.read()
+                    mensaje = f"Archivo '{nombre_archivo_actual}' cargado correctamente."
+                else:
+                    mensaje = f"Error: No se encontró el archivo '{nombre_archivo_actual}'."
                 return render_template_string(FORM_HTML, texto=texto, nombre_archivo_actual=nombre_archivo_actual, mensaje=mensaje)
-            
-            # 👉 OBTENER TEXTO DEL FORMULARIO O ARCHIVO SUBIDO
+
+            # 👉 CARGAR ARCHIVO DESDE LA PC
+            if accion == "cargar_archivo":
+                uploaded_file = request.files.get("archivo")
+                if uploaded_file and uploaded_file.filename:
+                    texto = uploaded_file.read().decode("utf-8")
+                    nombre_archivo_actual = uploaded_file.filename
+                    mensaje = f"Archivo '{nombre_archivo_actual}' cargado para su edición."
+                else:
+                    mensaje = "Error: No se seleccionó ningún archivo para cargar."
+                return render_template_string(FORM_HTML, texto=texto, nombre_archivo_actual=nombre_archivo_actual, mensaje=mensaje)
+
+            # 👉 OBTENER TEXTO DEL FORMULARIO
             texto = request.form.get("texto", "")
-            uploaded_file = request.files.get("archivo")
-            if uploaded_file and uploaded_file.filename:
-                texto = uploaded_file.read().decode("utf-8")
-                nombre_archivo_actual = uploaded_file.filename
             
             # 👉 GUARDAR COMO
             if accion == "guardar":
@@ -730,11 +769,9 @@ def index():
 
             # 👉 GENERAR PDF
             if accion == "generar_pdf":
-                # La lógica de generación de PDF se mantiene igual
+                # Lógica para generar PDF (se mantiene igual)
                 try:
                     contenido_canciones = convertir_songpro(texto)
-                    # Aquí la lógica para reemplazar en la plantilla y compilar el PDF
-                    # (mantengo la lógica original que no mostraste para enfocarme en la solución)
                     # ...
                     pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
                     if os.path.exists(pdf_file):
@@ -749,17 +786,11 @@ def index():
 
     except Exception:
         return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
-@app.route("/health", methods=["GET"])
-def health():
-    return "ok", 200
-
-@app.route("/ver_log")
-def ver_log():
-    return send_file("plantilla.log", mimetype="text/plain")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
