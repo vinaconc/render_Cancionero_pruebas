@@ -599,21 +599,40 @@ texto_ejemplo = """
  """
 
 def compilar_tex_seguro(tex_path):
-    tex_dir = os.path.dirname(os.path.abspath(tex_path)) or "."
-    tex_file = os.path.basename(tex_path)
-    cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_file]
-
+    """
+    Compila un archivo .tex y devuelve el log completo.
+    Muestra errores y advertencias sin detener el servidor.
+    """
     try:
-        subprocess.run(
-            cmd,
-            cwd=tex_dir,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        return os.path.join(tex_dir, tex_file.replace(".tex", ".pdf"))
-    except subprocess.CalledProcessError:
-        return NoneHTML = """
+        tex_dir = os.path.dirname(tex_path)
+        tex_file = os.path.basename(tex_path)
+
+        # Comando para compilar (dos pasadas para índice, refs, etc.)
+        cmd = [
+            "pdflatex",
+            "-interaction=nonstopmode",  # No se detiene en errores
+            "-halt-on-error",            # Detiene en error crítico
+            tex_file
+        ]
+
+        log_output = ""
+
+        # Dos pasadas mínimas
+        for _ in range(2):
+            process = subprocess.Popen(
+                cmd,
+                cwd=tex_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True
+            )
+            stdout, _ = process.communicate()
+            log_output += stdout
+
+        return log_output
+
+    except Exception as e:
+        return f"Error inesperado en compilación: {e}"
 <!doctype html>
 <html>
 <head>
@@ -689,6 +708,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
