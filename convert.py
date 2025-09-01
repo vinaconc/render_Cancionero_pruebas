@@ -599,65 +599,21 @@ texto_ejemplo = """
  """
 
 def compilar_tex_seguro(tex_path):
-	"""
-	Compila un archivo .tex y devuelve el log completo.
-	Muestra errores y advertencias sin detener el servidor.
-	"""
-	tex_dir = os.path.dirname(tex_path) or "."
-	tex_file = os.path.basename(tex_path)
+    tex_dir = os.path.dirname(os.path.abspath(tex_path)) or "."
+    tex_file = os.path.basename(tex_path)
+    cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_file]
 
-	try:
-		# Ejecutar pdflatex -> makeindex (si aplica) -> pdflatex
-		logs = ""
-
-		# Primera pasada
-		result = subprocess.run(
-			["pdflatex", "-interaction=nonstopmode", tex_file],
-			capture_output=True,
-			text=True,
-			cwd=tex_dir
-		)
-		logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
-		if result.returncode != 0:
-			raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
-
-		# makeindex para índices conocidos (si existen)
-		base = os.path.splitext(tex_file)[0]
-		posibles_indices = [
-			(f"{base}.idx", None),
-			(f"{base}.tema.idx", f"{base}.tema.ind"),
-			(f"{base}.cbtitle", f"{base}.cbtitle.ind"),
-		]
-		for entrada, salida in posibles_indices:
-			entrada_path = os.path.join(tex_dir, entrada)
-			if os.path.exists(entrada_path):
-				cmd = ["makeindex", entrada]
-				if salida is not None:
-					cmd = ["makeindex", "-o", salida, entrada]
-				mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
-				logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
-
-		# Segunda pasada
-		result2 = subprocess.run(
-			["pdflatex", "-interaction=nonstopmode", tex_file],
-			capture_output=True,
-			text=True,
-			cwd=tex_dir
-		)
-		logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
-		if result2.returncode != 0:
-			raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
-
-		# Verificar que se generó PDF
-		pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
-		if not os.path.exists(pdf_file):
-			raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
-
-		return logs
-
-	except Exception as e:
-		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
-HTML = """
+    try:
+        subprocess.run(
+            cmd,
+            cwd=tex_dir,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        return os.path.join(tex_dir, tex_file.replace(".tex", ".pdf"))
+    except subprocess.CalledProcessError:
+        return NoneHTML = """
 <!doctype html>
 <html>
 <head>
@@ -733,5 +689,6 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
