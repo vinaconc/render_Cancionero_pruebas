@@ -676,13 +676,13 @@ def index():
                 texto = uploaded_file.read().decode("utf-8")
 
             # 👉 GUARDAR o GUARDAR COMO
-            if accion in ("guardar", "guardar_como"):
-                try:
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
-                        f.write(texto)
-                except Exception:
-                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
-                return render_template_string(FORM_HTML, texto=texto)
+            if accion == "guardar":
+    			try:
+        			with open(archivo_salida, "w", encoding="utf-8") as f:
+            			f.write(texto)
+    			except Exception:
+        			return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+    			return render_template_string(FORM_HTML, texto=texto)
 
             # 👉 GENERAR PDF (flujo original tuyo)
             if accion == "generar_pdf":
@@ -736,11 +736,10 @@ FORM_HTML = """
     <input type="file" name="archivo" id="archivo"><br><br>
 
     <!-- Menú de acciones -->
-    <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
-    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
-    <button type="submit" name="accion" value="abrir">Abrir</button>
-    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
-</form>
+	<button type="submit" name="accion" value="abrir">Abrir archivo seleccionado</button>
+	<button type="submit" name="accion" value="guardar">Guardar</button>
+	<button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+	</form>
 """
 
 @app.route("/health", methods=["GET"])
@@ -754,5 +753,6 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
