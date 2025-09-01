@@ -736,18 +736,6 @@ def index():
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
-<script>
-function mostrarGuardarComo() {
-    document.getElementById('guardarComoDiv').style.display = 'block';
-    # Cambia el tipo de ‘Guardar como’ a submit cuando está listo
-    var btn = document.createElement('button');
-    btn.type = 'submit';
-    btn.name = 'accion';
-    btn.value = 'guardar_como';
-    btn.textContent = 'Confirmar guardar como';
-    document.forms.appendChild(btn);
-}
-</script>
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -760,3 +748,4 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
