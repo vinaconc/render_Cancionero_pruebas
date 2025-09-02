@@ -240,9 +240,9 @@ def convertir_songpro(texto):
 		if bloque_actual:
 			if tipo_bloque == 'nodiagram':
 				resultado.append(r'\beginverse')
-				resultado.append(r'\begin{quote}')
+				resultado.append(r'\begin{center}')
 				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
-				resultado.append(r'\end{quote}')
+				resultado.append(r'\end{center}')
 				resultado.append(r'\endverse')
 			else:
 				begin, end = entorno(tipo_bloque)
@@ -760,6 +760,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
