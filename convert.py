@@ -240,8 +240,9 @@ def convertir_songpro(texto):
 		if bloque_actual:
 			if tipo_bloque == 'nodiagram':
 				resultado.append(r'\beginverse')
-				resultado.append(r'\hspace*{2em}')
+				resultado.append(r'\begin{adjustwidth}{2em}{0pt}')
 				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
+				resultado.append(r'\end{adjustwidth}')
 				resultado.append(r'\endverse')
 			else:
 				begin, end = entorno(tipo_bloque)
@@ -759,4 +760,5 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
