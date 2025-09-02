@@ -676,7 +676,7 @@ def index():
                 texto = uploaded_file.read().decode("utf-8")
 
             # 👉 GUARDAR o GUARDAR COMO
-            if accion in ("guardar", "guardar_como"):
+            if accion in ("guardar_como"):
                 try:
                     with open(archivo_salida, "w", encoding="utf-8") as f:
                         f.write(texto)
@@ -736,7 +736,6 @@ FORM_HTML = """
     <input type="file" name="archivo" id="archivo"><br><br>
 
     <!-- Menú de acciones -->
-    <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
     <button type="submit" name="accion" value="guardar_como">Guardar</button>
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
@@ -767,6 +766,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
