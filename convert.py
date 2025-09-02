@@ -662,21 +662,14 @@ def index():
         if request.method == "POST":
             accion = request.form.get("accion")
 
-            # 👉 ABRIR
-            if accion == "abrir":
-                if os.path.exists(archivo_salida):
-                    with open(archivo_salida, "r", encoding="utf-8") as f:
-                        texto = f.read()
-                return render_template_string(FORM_HTML, texto=texto)
-
             # 👉 Obtener texto del formulario o archivo
             texto = request.form.get("texto", "")
             uploaded_file = request.files.get("archivo")
             if uploaded_file and uploaded_file.filename:
                 texto = uploaded_file.read().decode("utf-8")
 
-            # 👉 GUARDAR o GUARDAR COMO
-            if accion in ("guardar_como"):
+            # 👉 ABRIR o GUARDAR
+            if accion in ("abrir_guardar"):
                 try:
                     with open(archivo_salida, "w", encoding="utf-8") as f:
                         f.write(texto)
@@ -736,8 +729,7 @@ FORM_HTML = """
     <input type="file" name="archivo" id="archivo"><br><br>
 
     <!-- Menú de acciones -->
-    <button type="submit" name="accion" value="guardar_como">Guardar</button>
-    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" name="accion" value="abrir_guardar">Abrir/Guardar</button>
     <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
@@ -766,6 +758,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
