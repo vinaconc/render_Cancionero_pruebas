@@ -239,11 +239,11 @@ def convertir_songpro(texto):
 		nonlocal bloque_actual, tipo_bloque
 		if bloque_actual:
 			if tipo_bloque == 'nodiagram':
-				resultado.append(r'\beginverse')
-				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
-				resultado.append(r'\endverse')
-			else:
-				begin, end = entorno(tipo_bloque)
+    # Usar entorno similar a verse o chorus sin letra ni \diagram
+    		resultado.append(r'\beginverse')
+    		resultado.append('\n'.join(bloque_actual))
+    		resultado.append(r'\endverse')	
+			begin, end = entorno(tipo_bloque)
 				# Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
 				if tipo_bloque == 'verse':
 					letra_diagrama = 'A'
@@ -758,6 +758,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
