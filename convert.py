@@ -737,7 +737,7 @@ FORM_HTML = """
 
     <!-- Menú de acciones -->
     <button type="submit" name="accion" value="guardar">Abrir archivo seleccionado</button>
-    <button type="submit" name="accion" value="guardar_como">Guardar como</button>
+    <button type="submit" name="accion" value="guardar_como">Guardar</button>
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
@@ -767,6 +767,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
