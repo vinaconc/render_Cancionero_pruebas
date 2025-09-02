@@ -236,33 +236,34 @@ def convertir_songpro(texto):
 			return (r'\beginverse', r'\endverse')  # Usamos verse para melodía también, pero con letra C
 
 	def cerrar_bloque():
-		nonlocal bloque_actual, tipo_bloque
-		if bloque_actual:
-			if tipo_bloque == 'nodiagram':
-    # Usar entorno similar a verse o chorus sin letra ni \diagram
-    		resultado.append(r'\beginverse')
-    		resultado.append('\n'.join(bloque_actual))
-    		resultado.append(r'\endverse')	
-			begin, end = entorno(tipo_bloque)
-				# Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
-				if tipo_bloque == 'verse':
-					letra_diagrama = 'A'
-				elif tipo_bloque == 'chorus':
-					letra_diagrama = 'B'
-				elif tipo_bloque == 'melody':
-					letra_diagrama = 'C'
-				else:
-					letra_diagrama = 'A'  # Por defecto
-				# No reemplazar # en contenido, ya que los acordes ya tienen el escape necesario
-				contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
-				contenido = contenido.replace('"', '')
-				resultado.append(begin)
-				# Formato corregido según el ejemplo proporcionado por el usuario
-				resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
-				resultado.append(end)
-		# Siempre limpiar bloque actual y tipo
-		bloque_actual = []
-		tipo_bloque = None
+	    nonlocal bloque_actual, tipo_bloque
+	    if bloque_actual:
+	        if tipo_bloque == 'nodiagram':
+	            # Usar entorno similar a verse o chorus sin letra ni \diagram
+	            resultado.append(r'\beginverse')
+	            resultado.append('\n'.join(bloque_actual))
+	            resultado.append(r'\endverse')
+	        else:
+	            begin, end = entorno(tipo_bloque)
+	            # Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
+	            if tipo_bloque == 'verse':
+	                letra_diagrama = 'A'
+	            elif tipo_bloque == 'chorus':
+	                letra_diagrama = 'B'
+	            elif tipo_bloque == 'melody':
+	                letra_diagrama = 'C'
+	            else:
+	                letra_diagrama = 'A'  # Por defecto
+	            # No reemplazar # en contenido, ya que los acordes ya tienen el escape necesario
+	            contenido = ' \\'.join(bloque_actual) + ' \\'
+	            contenido = contenido.replace('"', '')
+	            resultado.append(begin)
+	            # Formato corregido según el ejemplo proporcionado por el usuario
+	            resultado.append(f"\diagram{{{letra_diagrama}}}{{{contenido}}}")
+	            resultado.append(end)
+	    # Siempre limpiar bloque actual y tipo
+	    bloque_actual = []
+	    tipo_bloque = None
 
 	def cerrar_cancion():
 		nonlocal cancion_abierta, referencia_pendiente
@@ -758,6 +759,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
