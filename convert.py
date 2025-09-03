@@ -728,17 +728,40 @@ def index():
 
 # 🔹 HTML con "menú" y opción de generar PDF
 FORM_HTML = """
-<h2>Editor de Canciones</h2>
+<h2>Creador Cancionero</h2>
 <form method="post" enctype="multipart/form-data">
-    <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <button type="button" id="btnInsertB">Repit</button>
+    <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
+
     <label for="archivo">O sube un archivo de texto:</label>
     <input type="file" name="archivo" id="archivo"><br><br>
-
     <!-- Menú de acciones -->
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
     <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
 </form>
+
+<script>
+function insertarTexto(texto) {
+    const textarea = document.getElementById("texto");
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+
+    textarea.value = value.substring(0, start) + texto + value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
+    textarea.focus();
+}
+
+document.getElementById("btnInsertB").addEventListener("click", function() {
+    insertarTexto("B");
+});
+
+document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
+    insertarTexto("_");
+});
+</script>
 """
 
 @app.route("/descargar", methods=["POST"])
@@ -764,6 +787,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
