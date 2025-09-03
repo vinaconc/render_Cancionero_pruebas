@@ -240,10 +240,14 @@ def convertir_songpro(texto):
 		if bloque_actual:
 			if tipo_bloque == 'nodiagram':
 				resultado.append(r'\beginverse')
-				resultado.append(r'\begin{center}')
+				resultado.append(r'\begin{minipage}[t]{0.4\textwidth}')
+				resultado.append(r'\vspace{-2.5em}')  # reduce espacio arriba
+				resultado.append(r'\centering')
 				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
-				resultado.append(r'\end{center}')
+				resultado.append(r'\vspace{-2.5em}')  # reduce espacio abajo
+				resultado.append(r'\end{minipage}')
 				resultado.append(r'\endverse')
+
 			else:
 				begin, end = entorno(tipo_bloque)
 				# Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
@@ -760,6 +764,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
