@@ -244,7 +244,7 @@ def convertir_songpro(texto):
 				resultado.append(r'\vspace{-2.5em}')  # reduce espacio arriba
 				resultado.append(r'\centering')
 				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
-				resultado.append(r'\vspace{-3em}')  # reduce espacio abajo
+				resultado.append(r'\vspace{-1em}')  # reduce espacio abajo
 				resultado.append(r'\end{minipage}')
 				resultado.append(r'\endverse')
 
@@ -787,6 +787,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
