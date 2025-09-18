@@ -30,6 +30,10 @@ def transportar_acorde(acorde, semitonos):
 	# Convertir notación de bemoles en inglés a notación estándar
 	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
 	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
+	if acorde == 'F#':
+    	acorde = 'Fa#'
+	elif acorde == 'C#':
+    	acorde = 'Do#'
 
 	# Manejar acordes con bajo (por ejemplo D/F#)
 	if '/' in acorde:
@@ -789,6 +793,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
