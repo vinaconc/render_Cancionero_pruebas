@@ -5,7 +5,7 @@ import subprocess
 import re
 import unicodedata
 
-app = Flask(__app__)
+app = Flask(__name__)
 
 # NOTA: Usar un directorio temporal para archivos de salida en un entorno de producción es más seguro.
 # Para este ejemplo simple, se usa el mismo directorio.
@@ -826,3 +826,4 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
