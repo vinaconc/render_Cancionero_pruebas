@@ -189,7 +189,7 @@ def convertir_songpro(texto):
                 resultado.append(r'\begin{minipage}[t]{0.4\textwidth}')
                 resultado.append(r'\vspace{-2.5em}')
                 resultado.append(r'\centering')
-                resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion, , es_seccion_n=True))
+                resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion, es_seccion_n=True))
                 resultado.append(r'\vspace{-1em}')
                 resultado.append(r'\end{minipage}')
                 resultado.append(r'\endverse')
@@ -560,6 +560,7 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
