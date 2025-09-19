@@ -1,820 +1,798 @@
-from flask import Flask, request, render_template_string, send_file
+from flask import Flask, request, render_template_string, send_file, Response
 import traceback
 import os
 import subprocess
 import re
 import unicodedata
 
+
+
 app = Flask(__name__)
 
-# NOTA: Usar un directorio temporal para archivos de salida en un entorno de producción es más seguro.
-# Para este ejemplo simple, se usa el mismo directorio.
 archivo_plantilla = "plantilla.tex"
-# Archivo por defecto para guardar/cargar si no se especifica otro
-archivo_por_defecto = "cancionero_web.txt"
 
-# Cargar la plantilla al iniciar la aplicación
-try:
-    with open(archivo_plantilla, "r", encoding="utf-8") as f:
-        plantilla = f.read()
-except FileNotFoundError:
-    print(f"Error: No se encontró el archivo de plantilla '{archivo_plantilla}'. Asegúrate de que existe en el mismo directorio.")
-    plantilla = "% Plantilla LaTeX no encontrada. Fallará la compilación."
+archivo_salida = "cancionero_web.tex"
+
+with open(archivo_plantilla, "r", encoding="utf-8") as f:
+	plantilla = f.read()
 
 indice_tematica_global = {}
 
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 equivalencias_latinas = {
-    'Do': 'C', 'Do#': 'C#', 'Re': 'D', 'Re#': 'D#', 'Mi': 'E', 'Fa': 'F',
-    'Fa#': 'F#', 'Sol': 'G', 'Sol#': 'G#', 'La': 'A', 'La#': 'A#', 'Si': 'B'
+	'Do': 'C', 'Do#': 'C#', 'Re': 'D', 'Re#': 'D#', 'Mi': 'E', 'Fa': 'F',
+	'Fa#': 'F#', 'Sol': 'G', 'Sol#': 'G#', 'La': 'A', 'La#': 'A#', 'Si': 'B'
 }
 
 def transportar_acorde(acorde, semitonos):
-    acorde = acorde.strip()
+	acorde = acorde.strip()
 
-    # Convertir notación de bemoles en inglés a notación estándar
-    acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
-    acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
+	# Convertir notación de bemoles en inglés a notación estándar
+	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
+	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
 
-    # Manejar acordes con bajo (por ejemplo D/F#)
-    if '/' in acorde:
-        parte_superior, bajo = acorde.split('/')
-        parte_superior_transpuesta = transportar_acorde(parte_superior, semitonos)
-        bajo_transpuesto = transportar_acorde(bajo, semitonos)
-        return f"{parte_superior_transpuesta}/{bajo_transpuesto}"
+	# Manejar acordes con bajo (por ejemplo D/F#)
+	if '/' in acorde:
+		parte_superior, bajo = acorde.split('/')
+		parte_superior_transpuesta = transportar_acorde(parte_superior, semitonos)
+		bajo_transpuesto = transportar_acorde(bajo, semitonos)
+		return f"{parte_superior_transpuesta}/{bajo_transpuesto}"
 
-    # Mapa de conversión de bemoles a sostenidos para procesamiento interno
-    mapa_bemoles_a_sostenidos = {
-        'Reb': 'Do#', 'Rebm': 'Do#m',
-        'Mib': 'Re#', 'Mibm': 'Re#m',
-        'Lab': 'Sol#', 'Labm': 'Sol#m',
-        'Sib': 'La#', 'Sibm': 'La#m'
-    }
+	# Mapa de conversión de bemoles a sostenidos para procesamiento interno
+	mapa_bemoles_a_sostenidos = {
+		'Reb': 'Do#', 'Rebm': 'Do#m',
+		'Mib': 'Re#', 'Mibm': 'Re#m',
+		'Lab': 'Sol#', 'Labm': 'Sol#m',
+		'Sib': 'La#', 'Sibm': 'La#m'
+		# Nota: Solb no se convierte a Fa# para mantener consistencia con el mapa de bemoles
+	}
 
-    # Convertir bemoles a sostenidos para procesamiento interno
-    for bemol, sostenido in mapa_bemoles_a_sostenidos.items():
-        if acorde.lower().startswith(bemol.lower()):
-            acorde = sostenido + acorde[len(bemol):]
-            break
+	# Convertir bemoles a sostenidos para procesamiento interno
+	for bemol, sostenido in mapa_bemoles_a_sostenidos.items():
+		if acorde.lower().startswith(bemol.lower()):
+			acorde = sostenido + acorde[len(bemol):]
+			break
 
-    # Detectar si es notación latina y convertir a americana
-    for nota_lat, nota_ang in equivalencias_latinas.items():
-        if acorde.lower().startswith(nota_lat.lower()):
-            acorde = nota_ang + acorde[len(nota_lat):]
-            break
+	# Detectar si es notación latina y convertir a americana
+	for nota_lat, nota_ang in equivalencias_latinas.items():
+		if acorde.lower().startswith(nota_lat.lower()):
+			acorde = nota_ang + acorde[len(nota_lat):]
+			break			
 
-    match = re.match(r'^([A-Ga-g][#b]?)(.*)$', acorde)
-    if not match:
-        return acorde
-    nota, sufijo = match.groups()
-    nota_mayus = nota.upper()
+	match = re.match(r'^([A-Ga-g][#b]?)(.*)$', acorde)
+	if not match:
+		return acorde
+	nota, sufijo = match.groups()
+	nota_mayus = nota.upper()
 
-    try:
-        idx = notas.index(nota_mayus)
-    except ValueError:
-        return acorde
+	try:
+		idx = notas.index(nota_mayus)
+	except ValueError:
+		return acorde
 
-    nueva_idx = (idx + semitonos) % 12
-    nueva_nota = notas[nueva_idx]
-    if nota[0].islower():
-        nueva_nota = nueva_nota.lower()
+	nueva_idx = (idx + semitonos) % 12
+	nueva_nota = notas[nueva_idx]
+	if nota[0].islower():
+		nueva_nota = nueva_nota.lower()
 
-    acorde_transpuesto = nueva_nota + sufijo
+	acorde_transpuesto = nueva_nota + sufijo
 
-    # Volver a convertir a notación latina
-    return convertir_a_latex(acorde_transpuesto)
+	# Volver a convertir a notación latina
+	return convertir_a_latex(acorde_transpuesto)
 
 
 def limpiar_para_indice(palabra):
-    return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
+	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
 
-def es_linea_acordes(linea):
-    tokens = linea.split()
-    if not tokens:
-        return False
-    for t in tokens:
-        # Verificar si es un acorde en notación americana
-        if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
-            continue
-
-        # Verificar si es un acorde en notación latina
-        notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
-        notas_latinas_bemoles = ['reb', 'mib', 'lab', 'sib']
-        notas_latinas_sostenidos = ['do#', 're#', 'fa#', 'sol#', 'la#']
-
-        # Comprobar si comienza con una nota latina (con sostenido, bemol o natural)
-        if any(t.lower().startswith(n.lower()) for n in notas_latinas) or \
-           any(t.lower().startswith(n.lower()) for n in notas_latinas_bemoles) or \
-           any(t.lower().startswith(n.lower()) for n in notas_latinas_sostenidos):
-            continue
-
-        # Si no coincide con ningún patrón, no es un acorde
-        return False
-    return True
-
-def convertir_a_latex(acorde):
-    mapa = {
-        'C': 'Do', 'C#': 'Do#', 'D': 'Re', 'D#': 'Re#', 'E': 'Mi', 'F': 'Fa',
-        'F#': 'Fa#', 'G': 'Sol', 'G#': 'Sol#', 'A': 'La', 'A#': 'La#', 'B': 'Si',
-        'Cm': 'Dom', 'C#m': 'Do#m', 'Dm': 'Rem', 'D#m': 'Re#m', 'Em': 'Mim',
-        'Fm': 'Fam', 'F#m': 'Fa#m', 'Gm': 'Solm', 'G#m': 'Sol#m',
-        'Am': 'Lam', 'A#m': 'La#m', 'Bm': 'Sim'
-    }
-
-    # Mapa de conversión de sostenidos a bemoles (SOLO para La#)
-    mapa_bemoles_excepcion = {
-        'La#': 'Sib', 'La#m': 'Sibm'
-    }
-
-    acorde = acorde.strip()
-    # Convertir notación de bemoles en inglés a notación estándar
-    acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
-    acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
-
-    if any(acorde.lower().startswith(n.lower()) for n in ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']):
-        return acorde
-
-    # Manejar acordes con bajo (por ejemplo D/F#)
-    if '/' in acorde:
-        parte_superior, bajo = acorde.split('/')
-        parte_superior_convertida = convertir_a_latex(parte_superior)
-        bajo_convertido = convertir_a_latex(bajo)
-        return f"{parte_superior_convertida}/{bajo_convertido}"
-
-    match = re.match(r'^([A-Ga-g][#b]?m?)(.*)$', acorde)
-    if match:
-        raiz, extension = match.groups()
-        raiz_mayus = raiz[0].upper() + raiz[1:]
-        raiz_convertida = mapa.get(raiz_mayus, raiz)
-
-        # Convertir SÓLO La# a Sib
-        raiz_convertida = mapa_bemoles_excepcion.get(raiz_convertida, raiz_convertida)
-
-        return raiz_convertida + extension
-
+def escapar_acorde_latex(acorde):
+    acorde = acorde.replace('#', '\\#')
+    acorde = acorde.replace('_', '\\_')
+    acorde = acorde.replace('%', '\\%')
+    acorde = acorde.replace('{', '\\{')
+    acorde = acorde.replace('}', '\\}')
+    acorde = acorde.replace('&', '\\&')
     return acorde
 
-def procesar_linea_con_acordes_y_indices(linea, acordes_externos, titulo_cancion, simbolo='#'):
-    # 'acordes_externos' es un parámetro que ahora puede estar vacío,
-    # ya que los acordes embebidos se tratan de forma independiente
-    # o como parte de los 'acordes_externos' si se usan en un par texto/acorde.
-    # Aquí nos enfocaremos en acordes *embebiidos* que se identifican por '_'
-    # y palabras indexadas por '#'.
+def escapar_acorde_latex(acorde):
+    acorde = acorde.replace('#', '\\#')
+    acorde = acorde.replace('_', '\\_')
+    # agrega más escapes si hace falta
+    return acorde
 
-    resultado_partes = []
-    
-    # Desescapar _ y # para procesar la sintaxis de SongPro
-    # Pero solo los que fueron escapados inicialmente como \\_ y \\#
-    linea_temp = linea.replace('\\_', '_').replace('\\#', '#')
-    
-    # Este regex intenta encontrar tokens que son palabras, o que contienen _ o #
-    # Ejemplo: "El#Amor_Do es #Un_Mi regalo" -> ["El#Amor_Do", "es", "#Un_Mi", "regalo"]
-    tokens = re.findall(r'(\S+)', linea_temp)
+def es_linea_acordes(linea):
+	tokens = linea.split()
+	if not tokens:
+		return False
+	for t in tokens:
+		# Verificar si es un acorde en notación americana
+		if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
+			continue
 
-    for token in tokens:
-        es_indexada = token.startswith(simbolo)
+		# Verificar si es un acorde en notación latina
+		notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
+		notas_latinas_bemoles = ['reb', 'mib', 'lab', 'sib']
+		notas_latinas_sostenidos = ['do#', 're#', 'fa#', 'sol#', 'la#']
+
+		# Comprobar si comienza con una nota latina (con sostenido, bemol o natural)
+		if any(t.lower().startswith(n.lower()) for n in notas_latinas) or \
+		   any(t.lower().startswith(n.lower()) for n in notas_latinas_bemoles) or \
+		   any(t.lower().startswith(n.lower()) for n in notas_latinas_sostenidos):
+			continue
+
+		# Si no coincide con ningún patrón, no es un acorde
+		return False
+	return True
+
+def convertir_a_latex(acorde):
+	mapa = {
+		'C': 'Do', 'C#': 'Do#', 'D': 'Re', 'D#': 'Re#', 'E': 'Mi', 'F': 'Fa',
+		'F#': 'Fa#', 'G': 'Sol', 'G#': 'Sol#', 'A': 'La', 'A#': 'La#', 'B': 'Si',
+		'Cm': 'Dom', 'C#m': 'Do#m', 'Dm': 'Rem', 'D#m': 'Re#m', 'Em': 'Mim',
+		'Fm': 'Fam', 'F#m': 'Fa#m', 'Gm': 'Solm', 'G#m': 'Sol#m',
+		'Am': 'Lam', 'A#m': 'La#m', 'Bm': 'Sim'
+	}
+
+	# Mapa de conversión de sostenidos a bemoles (SOLO para La#)
+	mapa_bemoles_excepcion = {
+		'La#': 'Sib', 'La#m': 'Sibm'
+	}
+
+	acorde = acorde.strip()
+	# Convertir notación de bemoles en inglés a notación estándar
+	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
+	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
+	acorde = acorde.replace('F#', 'FA#').replace('f#', 'fa#')
+	acorde = acorde.replace('C#', 'DO#').replace('c#', 'do#')
+
+	if any(acorde.lower().startswith(n.lower()) for n in ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']):
+		return acorde
+
+	# Manejar acordes con bajo (por ejemplo D/F#)
+	if '/' in acorde:
+		parte_superior, bajo = acorde.split('/')
+		parte_superior_convertida = convertir_a_latex(parte_superior)
+		bajo_convertido = convertir_a_latex(bajo)
+		return f"{parte_superior_convertida}/{bajo_convertido}"
+
+	match = re.match(r'^([A-Ga-g][#b]?m?)(.*)$', acorde)
+	if match:
+		raiz, extension = match.groups()
+		raiz_mayus = raiz[0].upper() + raiz[1:]
+		raiz_convertida = mapa.get(raiz_mayus, raiz)
+
+		# Convertir SÓLO La# a Sib
+		raiz_convertida = mapa_bemoles_excepcion.get(raiz_convertida, raiz_convertida)
+
+		return raiz_convertida + extension
+
+	return acorde
+
+
+def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#', es_seccion_n=False):
+    resultado = ''
+    idx_acorde = 0
+    palabras = linea.strip().split()
+    for palabra in palabras:
+        if es_seccion_n:
+            palabra = palabra.replace('#', r'\#')
+        es_indexada = palabra.startswith(simbolo)
         index_real = None
-        base_token = token
-        
-        if es_indexada:
-            if '=' in token:
-                base_token, index_real = token[1:].split('=', 1)
-            else:
-                base_token = token[1:]
-        
-        # Procesar acordes embebidos (con _ dentro del token)
-        # Esto maneja "palabra_ACORDE" o "_ACORDE"
-        
-        # Búsqueda más flexible para el patrón `letra_ACORDE`
-        # `([^ _]*)` captura la letra (0 o más caracteres que no sean espacio o guion bajo)
-        # `_` el separador
-        # `([A-Ga-g][#b]?[a-zA-Z0-9#]*)` captura el acorde (Do#, Sim, etc.)
-        match_embebido = re.match(r'^(.*?)\_([A-Ga-g][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?.*)$', base_token, re.IGNORECASE)
-        
-        if match_embebido:
-            letra_antes, acorde_embebido = match_embebido.groups()[0], match_embebido.groups()[1]
-            
-            acorde_transpuesto = transportar_acorde(acorde_embebido, 0)
-            acorde_escapado = acorde_transpuesto.replace('#', '\\#')
-            letra_escapada = letra_antes.replace('#', '\\#')
-            
-            # Si tiene un índice temático, lo agregamos a la letra escapada
-            palabra_para_indice = limpiar_para_indice(index_real if index_real else letra_antes)
-            if es_indexada:
-                if palabra_para_indice not in indice_tematica_global:
-                    indice_tematica_global[palabra_para_indice] = set()
-                titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
-                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
-                # Aquí la letra escapada incluye el índice.
-                letra_escapada = rf"\textcolor{{blue!50!black}}{{\textbf{{{letra_escapada}}}}}\\protect\\index[tema]{{{palabra_para_indice}}}"
-            
-            if letra_escapada:
-                resultado_partes.append(rf"\ch{{{acorde_escapado}}}{{{letra_escapada}}}")
-            else:
-                resultado_partes.append(rf"\chord{{{acorde_escapado}}}")
-        elif base_token == '_': # Caso especial: solo un guion bajo
-            resultado_partes.append('\\_') # Escapar como literal para LaTeX.
-        else: # No contiene guion bajo, es una palabra normal o indexada
-            palabra_para_indice = limpiar_para_indice(index_real if index_real else base_token)
-            if es_indexada:
-                if palabra_para_indice not in indice_tematica_global:
-                    indice_tematica_global[palabra_para_indice] = set()
-                titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
-                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
-
-                escaped_base_token = base_token.replace('#', '\\#')
-                resultado_partes.append(rf"\textcolor{{blue!50!black}}{{\textbf{{{escaped_base_token}}}}}\\protect\\index[tema]{{{palabra_para_indice}}}")
-            else:
-                escaped_base_token = base_token.replace('#', '\\#')
-                resultado_partes.append(escaped_base_token)
-        
-    return ' '.join(resultado_partes).strip()
-
-
-def procesar_bloque_simple_linea(linea_texto, transposicion):
-    linea = linea_texto.strip()
-    if not linea:
-        return ""
-
-    # Desescapar _ y # si fueron escapados para SongPro temporalmente
-    linea = linea.replace('\\_', '_').replace('\\#', '#')
-
-    # Detectar pares "texto: acordes"
-    match_texto_acordes = re.match(r'^([^:]+):\s*(.*)$', linea)
-    if match_texto_acordes:
-        texto_linea, acordes_linea_raw = match_texto_acordes.groups()
-        acordes_tokens = acordes_linea_raw.split()
-        acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
-        
-        # --- CORRECCIÓN AQUÍ (LÍNEA 250 ORIGINAL) ---
-        acordes_para_mbox = ' '.join(r'\chord{' + a.replace("#", "\\#") + r'}' for a in acordes_transpuestos)
-        
-        texto_linea_escapado = texto_linea.strip().replace("#", "\\#")
-        
-        return rf'\textnote{{{texto_linea_escapado}}}\mbox{{{acordes_para_mbox}}}'
-    
-    # Detectar líneas de solo acordes
-    if es_linea_acordes(linea):
-        acordes_tokens = linea.split()
-        acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
-        # --- CORRECCIÓN AQUÍ (SIMILAR AL ANTERIOR) ---
-        acordes_para_mbox = ' '.join(r'\chord{' + a.replace("#", "\\#") + r'}' for a in acordes_transpuestos)
-        return rf'\mbox{{{acordes_para_mbox}}}'
-    else:
-        # Si es una línea de texto simple (no un comando V, C, M, N)
-        if linea.strip() in ('V', 'C', 'M', 'N'):
-            return "" # Estos son comandos, no deben renderizarse como texto
-
-        # Si contiene guiones bajos o almohadillas (para índices o acordes embebidos)
-        if '_' in linea or '#' in linea:
-            # Reutiliza procesar_linea_con_acordes_y_indices
-            # Asumiendo que 'titulo_cancion_actual' está definido en el ámbito global o se pasa.
-            # Aquí lo paso como "" para evitar un error de NameError si no está disponible.
-            linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], globals().get('titulo_cancion_actual', ''))
-            # Envuelve en \textnote ya que es texto de letra
-            return rf'\textnote{{{linea_procesada_para_lyrics}}}' # No añade \\ aquí, lo gestiona el llamador
+        if es_indexada and '=' in palabra:
+            base, index_real = palabra[1:].split('=', 1)
         else:
-            # Línea de texto normal, solo escapa #
-            linea_escapada = linea.replace('#', '\\#')
-            return rf'\textnote{{{linea_escapada}}}' # No añade \\ aquí, lo gestiona el llamador
+            base = palabra[1:] if es_indexada else palabra
+        if es_seccion_n:
+            # Si el base contenía # originalmente, ya está escapado arriba.
+            pass
+        if base == '_':
+            if idx_acorde < len(acordes):
+                # Escapar sostenidos en acordes para LaTeX
+                acorde_escapado = escapar_acorde_latex(acordes[idx_acorde])
+                resultado += f"\\raisebox{{1.7ex}}{{\\[{acorde_escapado}]}} "
+                idx_acorde += 1
+            else:
+                resultado += '_ '
+            continue
+        if '_' in base:
+            # Aquí base tiene acordes embebidos
+            partes = base.split('_')
+            latex = ''
+            for i, parte in enumerate(partes):
+                if i > 0 and idx_acorde < len(acordes):
+                    # Escapar sostenidos en acordes para LaTeX
+                    acorde_escapado = escapar_acorde_latex(acordes[idx_acorde])
+                    latex += f"\\[{acorde_escapado}]"
+                    idx_acorde += 1
+                latex += parte
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes))
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+                titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
+                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
+                # Solo agregamos esta palabra, resaltada y con acorde insertado
+                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
+            else:
+                resultado += latex + ' '
+        else:
+            # Palabra sin acorde embebido
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+                indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
+                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
+            else:
+                resultado += base + ' '
+    return resultado.strip()
 
 
 def convertir_songpro(texto):
-    referencia_pendiente = None
-    # NORMALIZACIÓN: Escapar de la entrada los caracteres problemáticos para LaTeX
-    # Mantenemos \\# y \\_ para SongPro, pero escapamos otros caracteres especiales de LaTeX
-    # Esta normalización debe hacerse con cuidado para no interferir con la sintaxis de SongPro.
-    # El escapado de '#' en acordes se hará más tarde.
-    texto = texto.replace('\'', '\\\'')
-    texto = unicodedata.normalize('NFC', texto)
+	referencia_pendiente = None
 
-    lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
-    resultado = []
-    bloque_actual = []
-    tipo_bloque = None
-    seccion_abierta = False
-    cancion_abierta = False
-    global titulo_cancion_actual # Necesario para procesar_linea_con_acordes_y_indices
-    titulo_cancion_actual = ""
-    transposicion = 0
+	lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
+	resultado = []
+	bloque_actual = []
+	tipo_bloque = None
+	seccion_abierta = False
+	cancion_abierta = False
+	titulo_cancion_actual = ""
+	transposicion = 0
 
-    def entorno(tb):
-        if tb == 'verse':
-            return (r'\beginverse', r'\endverse')
-        elif tb == 'chorus':
-            return (r'\beginchorus', r'\endchorus')
-        elif tb == 'melody':
-            return (r'\beginverse', r'\endverse')
-        return None, None # Devuelve None si el tipo no es reconocido
+	def entorno(tb):
+		if tb == 'verse':
+			return (r'\beginverse', r'\endverse')
+		elif tb == 'chorus':
+			return (r'\beginchorus', r'\endchorus')
+		elif tb == 'melody':
+			return (r'\beginverse', r'\endverse')  # Usamos verse para melodía también, pero con letra C
 
-    def cerrar_bloque():
-        nonlocal bloque_actual, tipo_bloque
-        if bloque_actual:
-            if tipo_bloque == 'nodiagram':
-                resultado.append(r'\beginverse') # Nodiagrams son tratados como versos simples
-                for linea_contenido in bloque_actual:
-                    # Las líneas de nodiagram se procesan individualmente, se asume que procesar_bloque_simple_linea
-                    # ya devuelve la línea con \textnote o \mbox si es necesario, sin \\ final
-                    # Aquí añadimos el \\ para el salto de línea.
-                    resultado.append(linea_contenido + r'\\')
-                resultado.append(r'\endverse')
-            elif tipo_bloque is not None:
-                begin, end = entorno(tipo_bloque)
-                if begin and end:
-                    # Usamos el entorno adecuado para cada tipo de bloque
-                    resultado.append(begin)
-                    # Cada línea ya debe venir con su formato LaTeX (textnote, mbox, ch, chord)
-                    # y los \\ para los saltos de línea internos se añaden aquí,
-                    # excepto si la línea ya es un mbox o textnote completo.
-                    for l in bloque_actual:
-                        # Si la línea ya es un \mbox o \textnote completo, no añadir \\
-                        if l.startswith(r'\mbox{') or l.startswith(r'\textnote{'):
-                            resultado.append(l)
-                        else:
-                            resultado.append(l + r'\\')
-                    resultado.append(end)
-        bloque_actual = []
-        tipo_bloque = None
+	def cerrar_bloque():
+		nonlocal bloque_actual, tipo_bloque
+		if bloque_actual:
+			if tipo_bloque == 'nodiagram':
+				resultado.append(r'\beginverse')
+				resultado.append(r'\begin{minipage}[t]{0.4\textwidth}')
+				resultado.append(r'\vspace{-2.5em}')  # reduce espacio arriba
+				resultado.append(r'\centering')
+				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion, es_seccion_n=True))
+				resultado.append(r'\vspace{-1em}')  # reduce espacio abajo
+				resultado.append(r'\end{minipage}')
+				resultado.append(r'\endverse')
 
-    def cerrar_cancion():
-        nonlocal cancion_abierta, referencia_pendiente
-        if cancion_abierta:
-            cerrar_bloque() # Asegúrate de cerrar cualquier bloque pendiente antes de la canción
-            resultado.append(r'\endsong')
-            if referencia_pendiente:
-                referencia_escapada = referencia_pendiente.replace('#', '\\#')
-                resultado.append(rf'\beginscripture{{[{referencia_escapada}]}}')
-                resultado.append(r'\endscripture')
-                referencia_pendiente = None
-            cancion_abierta = False
+			else:
+				begin, end = entorno(tipo_bloque)
+				# Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
+				if tipo_bloque == 'verse':
+					letra_diagrama = 'A'
+				elif tipo_bloque == 'chorus':
+					letra_diagrama = 'B'
+				elif tipo_bloque == 'melody':
+					letra_diagrama = 'C'
+				else:
+					letra_diagrama = 'A'  # Por defecto
+				# No reemplazar # en contenido, ya que los acordes ya tienen el escape necesario
+				contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
+				contenido = contenido.replace('"', '')
+				resultado.append(begin)
+				# Formato corregido según el ejemplo proporcionado por el usuario
+				resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
+				resultado.append(end)
+		# Siempre limpiar bloque actual y tipo
+		bloque_actual = []
+		tipo_bloque = None
 
-    i = 0
-    while i < len(lineas):
-        linea = lineas[i].strip()
+	def cerrar_cancion():
+		nonlocal cancion_abierta, referencia_pendiente
+		if cancion_abierta:
+			resultado.append(r'\endsong')
+			if referencia_pendiente:
+				resultado.append(rf'\beginscripture{{[{referencia_pendiente}]}}')
+				resultado.append(r'\endscripture')
+				referencia_pendiente = None
+			cancion_abierta = False
 
-        # Antes de cualquier procesamiento, desescapar _ y # si fueron escapados para SongPro
-        # Esto es crucial porque la sintaxis de SongPro los usa directamente.
-        # Desescapar solo para esta línea, no permanentemente en 'texto'
-        temp_linea = linea.replace('\\_', '_').replace('\\#', '#')
+	def procesar_bloque_simple(texto, transposicion, es_seccion_n=False):
+	    lineas = texto.strip().split('\n')
+	    resultado = []
+	    for linea in lineas:
+	        linea = linea.strip()
+	        if not linea:
+	            continue
+	        match = re.match(r'^([^:]+):\s*(.*)$', linea)
+	        if match:
+	            texto_linea, acordes_linea = match.groups()
+	            acordes = acordes_linea.split()
+	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+	            if es_seccion_n:
+	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+	            latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
+	            resultado.append(rf'\textnote{{{texto_linea.strip()}}}')
+	            resultado.append(rf'\mbox{{{latex_acordes}}}')
+	            continue
+	        if es_linea_acordes(linea):
+	            acordes = linea.split()
+	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+	            if es_seccion_n:
+	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+	            latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
+	            resultado.append(rf'\mbox{{{latex_acordes}}}')
+	            continue
+	        else:
+	            if linea.strip() in ('V', 'C', 'M', 'N'):
+	                continue  # evitar procesar marcadores
+	            if es_seccion_n:
+	                linea = linea.replace('#', r'\#')
+	            resultado.append(linea + r'\\')
+	    return '\n'.join(resultado)
 
-        if temp_linea.lower().startswith("ref="):
-            cerrar_bloque()
-            contenido = temp_linea[4:].strip()
-            if contenido.startswith('(') and contenido.endswith(')'):
-                referencia_pendiente = contenido[1:-1]
-            i += 1
-            continue
+	i = 0
+	while i < len(lineas):
+		linea = lineas[i].strip()
+		if linea.lower().startswith("ref="):
+			contenido = linea[4:].strip()
+			if contenido.startswith('(') and contenido.endswith(')'):
+				referencia_pendiente = contenido[1:-1]
+			i += 1
+			continue
 
-        if not temp_linea:
-            cerrar_bloque()
-            i += 1
-            continue
+		if not linea:
+			i += 1
+			continue
 
-        if temp_linea.startswith('S '):
-            cerrar_bloque()
-            cerrar_cancion()
-            if seccion_abierta:
-                resultado.append(r'\end{songs}')
-            seccion_abierta = True
-            chapter_title_escaped = temp_linea[2:].strip().title().replace('#', '\\#')
-            resultado.append(r'\songchapter{' + chapter_title_escaped + '}')
-            resultado.append(r'\begin{songs}{titleidx}')
-            i += 1
-            continue
 
-        if temp_linea.startswith('O '):
-            cerrar_bloque()
-            cerrar_cancion()
-            partes = temp_linea[2:].strip().split()
-            transposicion = 0
-            if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
-                transposicion = int(partes[-1].replace('=', ''))
-                partes = partes[:-1]
-            titulo_cancion_actual = ' '.join(partes).title()
 
-            etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+		if linea.startswith('S '):
+			cerrar_bloque()
+			cerrar_cancion()
+			if seccion_abierta:
+				resultado.append(r'\end{songs}')
+			seccion_abierta = True
+			resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
+			resultado.append(r'\begin{songs}{titleidx}')
+			i += 1
+			continue
 
-            title_escaped = titulo_cancion_actual.replace('#', '\\#')
-            resultado.append(r'\beginsong{' + title_escaped + '}')
-            resultado.append(rf'\index[titleidx]{{{title_escaped}}}')
-            resultado.append(r'\phantomsection')
-            resultado.append(rf'\label{{{etiqueta}}}')
+		if linea.startswith('O '):
+			cerrar_bloque()
+			cerrar_cancion()
+			partes = linea[2:].strip().split()
+			transposicion = 0
+			if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
+				transposicion = int(partes[-1].replace('=', ''))
+				partes = partes[:-1]
+			titulo_cancion_actual = ' '.join(partes).title()
 
-            cancion_abierta = True
-            i += 1
-            continue
+			etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
-        if temp_linea.isupper() and len(temp_linea) > 1 and not es_linea_acordes(temp_linea) and temp_linea not in ('V', 'C', 'M', 'O', 'S', 'N'):
-            cerrar_bloque()
-            cerrar_cancion()
-            titulo_cancion_actual = temp_linea.title()
+			resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+			resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
+			resultado.append(r'\phantomsection')
+			resultado.append(rf'\label{{{etiqueta}}}')
 
-            etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+			cancion_abierta = True
+			i += 1
+			continue
 
-            title_escaped = titulo_cancion_actual.replace('#', '\\#')
-            resultado.append(r'\beginsong{' + title_escaped + '}')
-            resultado.append(r'\phantomsection')
-            resultado.append(rf'\label{{{etiqueta}}}')
+		if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
+			cerrar_bloque()
+			cerrar_cancion()
+			titulo_cancion_actual = linea.title()
 
-            cancion_abierta = True
-            i += 1
-            continue
+			etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
-        if temp_linea == 'O':
-            cerrar_bloque()
-            cerrar_cancion()
-            titulo_cancion_actual = ""
-            resultado.append(r'\beginsong{}')
-            cancion_abierta = True
-            i += 1
-            continue
+			resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+			resultado.append(r'\phantomsection')
+			resultado.append(rf'\label{{{etiqueta}}}')
 
-        if not cancion_abierta:
-            # Si no hay canción abierta y encontramos contenido, crear una canción sin título
-            resultado.append(r'\beginsong{}')
-            cancion_abierta = True
-            titulo_cancion_actual = "Sin título" # para que procesar_linea_con_acordes_y_indices pueda usarlo
+			cancion_abierta = True
+			i += 1
+			continue
 
-        # Comandos de bloques
-        if temp_linea == 'V':
-            cerrar_bloque()
-            tipo_bloque = 'verse'
-            i += 1
-            continue
+		if linea == 'O':
+			cerrar_bloque()
+			cerrar_cancion()
+			titulo_cancion_actual = ""
+			resultado.append(r'\beginsong{}')
+			cancion_abierta = True
+			i += 1
+			continue
 
-        if temp_linea == 'M':
-            cerrar_bloque()
-            tipo_bloque = 'melody'
-            i += 1
-            continue
+		if not cancion_abierta:
+			resultado.append(r'\beginsong{}')
+			cancion_abierta = True
 
-        if temp_linea == 'N':
-            cerrar_bloque()
-            tipo_bloque = 'nodiagram'
-            i += 1
-            continue
+		if linea == 'V':
+			cerrar_bloque()
+			tipo_bloque = 'verse'
+			acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+			i += 1
+			continue
 
-        if temp_linea == 'C':
-            cerrar_bloque() # Siempre cierra el bloque anterior al iniciar uno nuevo
-            tipo_bloque = 'chorus'
-            i += 1
-            continue
+		if linea == 'M':  # Nueva marca para melodía distinta
+			cerrar_bloque()
+			tipo_bloque = 'melody'
+			acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+			i += 1
+			continue
 
-        # Procesa líneas con acordes separados del texto (línea de acordes + línea de letra)
-        if i + 1 < len(lineas) and es_linea_acordes(temp_linea):
-            acordes_originales = temp_linea.strip().split()
-            acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
+		if linea == 'N':
+			cerrar_bloque()
+			tipo_bloque = 'nodiagram'
+			i += 1
+			continue
 
-            letras_raw = lineas[i + 1].strip().replace('\\_', '_').replace('\\#', '#')
 
-            if letras_raw.startswith("//") and letras_raw.endswith("//"):
-                letras_raw = letras_raw[2:-2].strip()
 
-            rep_ini = letras_raw.startswith('B ')
-            if rep_ini:
-                letras_raw = letras_raw[2:].lstrip()
-            rep_fin = False
-            repeticiones = 2
+		# Look ahead for a chord line and a lyric line
+			if i + 2 < len(lineas) and es_linea_acordes(lineas[i+1]) and not es_linea_acordes(lineas[i+2]):
+		# ... (rest of the processing logic)
+				i += 3 # Advance by 3 lines (V, chords, lyrics)
+				continue
+			else:
+				i += 1 # Just advance by 1 for the V/C line
+				continue
 
-            m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
-            if m_fin:
-                rep_fin = True
-                repeticiones = int(m_fin.group(1))
-                letras_raw = letras_raw[:m_fin.start()].rstrip()
-            elif letras_raw.endswith(' B'):
-                rep_fin = True
-                letras_raw = letras_raw[:-2].rstrip()
 
-            # Caso especial para líneas de acorde sin letra explícita (solo '_')
-            if letras_raw == '_':
-                cerrar_bloque() 
-                acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
-                # En este caso, la línea de acordes es la "letra"
-                linea_acordes_latex = ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex])
-                resultado.append(rf'\textnote{{{linea_acordes_latex}}}' + r'\\')
-                i += 2
-                continue
-            
-            # Formatear línea de acordes
-            acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
-            # --- CORRECCIÓN AQUÍ (LÍNEA ~461 ORIGINAL) ---
-            linea_acordes_latex = '\\mbox{' + ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex]) + '}'
 
-            # Formatear línea de letra
-            if '_' in letras_raw or '#' in letras_raw:
-                # La función procesar_linea_con_acordes_y_indices ya usa \ch o \chord y escapa el #
-                linea_letras_latex = procesar_linea_con_acordes_y_indices(letras_raw, [], titulo_cancion_actual)
-            else:
-                linea_letras_latex = letras_raw.replace('#', '\\#') # Solo escapa # en texto literal
+		if linea == 'C':
+			# Verificamos si la siguiente línea es una línea de acordes.
+			# Solo si SÍ lo es, 'C' es un marcador de coro.
+			if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
+				cerrar_bloque() # Cierra el bloque anterior antes de empezar el coro
+				tipo_bloque = 'chorus'
+				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+				i += 1 # Consumimos la línea 'C'
+				continue # Continuamos al siguiente ciclo para procesar la línea de acordes/letra
+			else:
+				# Si 'C' NO es seguido por acordes (gracias a la 'es_linea_acordes' corregida),
+				# lo tratamos como una línea de letra normal.
+				# NO cambiamos el tipo_bloque a 'chorus' aquí.
+				# La línea 'C' será procesada por el bloque de lógica de texto general (más abajo).
+				pass 
 
-            # Asegurar que la línea de letra se ponga en un \textnote si no tiene ya un comando de acorde.
-            # Los comandos \ch{} y \chord{} deben estar dentro de \textnote para una línea de letra.
-            linea_letras_final = linea_letras_latex
-            if not (linea_letras_latex.startswith(r'\ch{') or linea_letras_latex.startswith(r'\chord{')):
-                 # Si no es solo un acorde, envuélvelo en textnote
-                 linea_letras_final = rf'\textnote{{{linea_letras_latex}}}'
+		if i > 0 and lineas[i - 1].strip() in ('V', 'C', 'M'):
+			cerrar_bloque()
+			if lineas[i - 1].strip() == 'V':
+				tipo_bloque = 'verse'
+			elif lineas[i - 1].strip() == 'C':
+				tipo_bloque = 'chorus'
+			elif lineas[i - 1].strip() == 'M':
+				tipo_bloque = 'melody'
 
-            # Añadir repeticiones
-            if rep_ini and rep_fin:
-                linea_letras_final = r'\lrep ' + linea_letras_final + rf' \rrep \rep{{{repeticiones}}}'
-            elif rep_ini:
-                linea_letras_final = r'\lrep ' + linea_letras_final
-            elif rep_fin:
-                linea_letras_final = linea_letras_final + rf' \rrep \rep{{{repeticiones}}}'
+		if i + 1 < len(lineas) and es_linea_acordes(lineas[i]): # Asegura que la línea actual son acordes
+			acordes_originales = lineas[i].strip().split()
+			acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
+			letras_raw = lineas[i + 1].strip()
+			if letras_raw.startswith("//") and letras_raw.endswith("//"):
+				letras_raw = letras_raw[2:-2].strip()
 
-            # Agrega ambas líneas al bloque actual
-            bloque_actual.append(linea_acordes_latex)
-            bloque_actual.append(linea_letras_final)
-            
-            i += 2
-            continue
+			rep_ini = letras_raw.startswith('B ')
+			if rep_ini:
+				letras_raw = letras_raw[2:].lstrip()
+			rep_fin = False
+			repeticiones = 2 # valor por defecto
 
-        # Procesa líneas de texto dentro de un bloque existente
-        if tipo_bloque and not es_linea_acordes(temp_linea):
-            if temp_linea in ('V', 'C', 'M', 'N'):
-                i += 1
-                continue
+			# Detectar repetición final explícita con B=n
+			m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
+			if m_fin:
+				rep_fin = True
+				repeticiones = int(m_fin.group(1))
+				letras_raw = letras_raw[:m_fin.start()].rstrip()
+			elif letras_raw.endswith(' B'):
+				rep_fin = True
+				letras_raw = letras_raw[:-2].rstrip()
 
-            rep_ini = temp_linea.startswith('B ')
-            if rep_ini:
-                temp_linea = temp_linea[2:].lstrip()
+			if letras_raw == '_':
+				cerrar_bloque()
+				resultado.append(f"\\textnote{{{acordes[0]}}}")
+				i += 2
+				continue
 
-            rep_fin = False
-            repeticiones = 2
+			if not ('_' in letras_raw or '#' in letras_raw):
+				# Escapar sostenidos en acordes para LaTeX
+				acordes_escapados = [a.replace('#', '\\#') for a in acordes]
+				bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')  # Sin '\\'
+				bloque_actual.append(letras_raw)  # Sin '\\'
+				i += 2
+				continue
 
-            m_fin = re.search(r'\s+[Bb]=(\d+)$', temp_linea)
-            if m_fin:
-                rep_fin = True
-                repeticiones = int(m_fin.group(1))
-                temp_linea = temp_linea[:m_fin.start()].rstrip()
-            elif temp_linea.endswith(' B') or temp_linea.endswith(' b'):
-                rep_fin = True
-                temp_linea = temp_linea[:-2].rstrip()
+			prev_marker = lineas[i-1].strip() if i-1 >= 0 else ''
+			es_seccion_n_flag = (prev_marker == 'N' or prev_marker == 'V' or tipo_bloque in ('nodiagram','verse'))
+			linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual, es_seccion_n=es_seccion_n_flag)
+			if rep_ini and rep_fin:
+				linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+			elif rep_ini:
+				linea_convertida = r'\lrep ' + linea_convertida
+			elif rep_fin:
+				linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+			bloque_actual.append(linea_convertida)
+			i += 2
+			continue
 
-            # La función procesar_bloque_simple_linea ahora devuelve \textnote{...}
-            linea_procesada = procesar_bloque_simple_linea(temp_linea, transposicion)
+		if tipo_bloque and not es_linea_acordes(linea):
+			if linea in ('V', 'C', 'M', 'N'):
+				i += 1
+				continue
+			# Detectar repetición inicial 'B '
 
-            if rep_ini and rep_fin:
-                linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
-            elif rep_ini:
-                linea_procesada = r'\lrep ' + linea_procesada
-            elif rep_fin:
-                linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+			rep_ini = linea.startswith('B ')
+			if rep_ini:
+				linea = linea[2:].lstrip()
 
-            bloque_actual.append(linea_procesada)
-            i += 1
-            continue
-        
-        # Si llegamos aquí y hay una canción abierta, pero la línea no es un comando de bloque,
-        # un par acorde/letra, ni dentro de un bloque, entonces es texto "suelto" de la canción.
-        # Debe ser añadido al bloque actual (posiblemente un 'verse' implícito si no hay otro).
-        # Esto podría ser lo que faltaba para líneas que no se capturaban.
-        if cancion_abierta and temp_linea:
-            # Asumir que esto es texto de la canción. Envuelve en \textnote
-            linea_procesada = procesar_bloque_simple_linea(temp_linea, transposicion)
-            
-            if tipo_bloque is None:
-                tipo_bloque = 'verse' # Iniciar un verso implícito
-            
-            # Aseguramos que se añade un salto de línea LaTeX
-            bloque_actual.append(linea_procesada + r'\\')
-            i += 1
-            continue
+			rep_fin = False
+			repeticiones = 2  # valor por defecto
 
-        # Si llegamos aquí y la línea no fue procesada por ninguna de las condiciones anteriores,
-        # simplemente avanza.
-        i += 1
+			# Detectar repetición final ' B' o 'B=3' o 'b=4'
+			m_fin = re.search(r'\s+[Bb]=(\d+)$', linea)
+			if m_fin:
+				rep_fin = True
+				repeticiones = int(m_fin.group(1))
+				linea = linea[:m_fin.start()].rstrip()
+			elif linea.endswith(' B') or linea.endswith(' b'):
+				rep_fin = True
+				linea = linea[:-2].rstrip()
 
-    cerrar_bloque()
-    cerrar_cancion()
-    if seccion_abierta:
-        resultado.append(r'\end{songs}')
+			# Ahora procesamos con o sin acordes incrustados
+			if '_' in linea or '#' in linea:
+				es_seccion_n_flag = (tipo_bloque in ('nodiagram','verse'))
+				linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual, es_seccion_n=es_seccion_n_flag)
 
-    return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+			else:
+				linea_procesada = linea
 
+			if rep_ini and rep_fin:
+				linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+			elif rep_ini:
+				linea_procesada = r'\lrep ' + linea_procesada
+			elif rep_fin:
+				linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+
+			bloque_actual.append(linea_procesada)
+			i += 1
+			continue
+			if linea in ('V', 'C', 'M', 'N'):
+				i += 1
+				continue
+			if linea == 'V':
+				cerrar_bloque()
+				tipo_bloque = 'verse'
+				acordes_linea_anterior = []
+				i += 1
+				continue
+			if linea == 'M':
+				cerrar_bloque()
+				tipo_bloque = 'melody'
+				acordes_linea_anterior = []
+				i += 1
+				continue
+	cerrar_bloque()
+	cerrar_cancion()
+	if seccion_abierta:
+		resultado.append(r'\end{songs}')
+
+	return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
 
 def normalizar(palabra):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', palabra.lower())
-        if unicodedata.category(c) != 'Mn'
-    )
+	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
+	return ''.join(
+		c for c in unicodedata.normalize('NFD', palabra.lower())
+		if unicodedata.category(c) != 'Mn'
+	)
 
 def convertir_a_latina(acorde):
-    if '/' in acorde:
-        parte_superior, bajo = acorde.split('/')
-        parte_superior = equivalencias_latinas.get(parte_superior, parte_superior)
-        bajo = equivalencias_latinas.get(bajo, bajo)
-        return f"{parte_superior}/{bajo}"
-    return equivalencias_latinas.get(acorde, acorde)
+	"""Convierte un acorde de notación americana a latina, incluyendo acordes con bajo."""
+	if '/' in acorde:
+		parte_superior, bajo = acorde.split('/')
+		parte_superior = equivalencias_latinas.get(parte_superior, parte_superior)
+		bajo = equivalencias_latinas.get(bajo, bajo)
+		return f"{parte_superior}/{bajo}"
+	return equivalencias_latinas.get(acorde, acorde)
 
 def limpiar_titulo_para_label(titulo):
-    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
-    titulo = unicodedata.normalize('NFD', titulo)
-    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
-    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
-    return titulo.replace(' ', '-')
+	# Elimina transposición al final como ' =-2' o '=+1'
+	titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
+	# Normaliza: quita tildes y caracteres no válidos para etiquetas
+	titulo = unicodedata.normalize('NFD', titulo)
+	titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
+	titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
+	return titulo.replace(' ', '-')
 
 def generar_indice_tematica():
-    if not indice_tematica_global:
-        return ""
+	if not indice_tematica_global:
+		return ""
 
-    resultado = [r"\section*{Índice Temático}", r"\begin{itemize}"]
+	resultado = [r"\section*{Índice Temático}", r"\begin{itemize}"]
 
-    for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
-        canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
-        
-        enlaces = []
-        for c in canciones:
-            titulo_escapado_para_latex = c.replace('#', '\\#')
-            enlaces.append(rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]{{{titulo_escapado_para_latex}}}")
-        
-        palabra_titulo_escapada = palabra.title().replace('#', '\\#')
-        resultado.append(rf"  \item \textbf{{{palabra_titulo_escapada}}} --- {', '.join(enlaces)}")
+	for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
+		canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
+		enlaces = [
+			rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c}}}"
+			for c in canciones
+		]
+		resultado.append(rf"  \item \textbf{{{palabra.title()}}} --- {', '.join(enlaces)}")
 
-    resultado.append(r"\end{itemize}")
-    return '\n'.join(resultado)
+	resultado.append(r"\end{itemize}")
+	return '\n'.join(resultado)
+
+
+texto_ejemplo = """
+ """
 
 def compilar_tex_seguro(tex_path):
-    tex_dir = os.path.dirname(tex_path) or "."
-    tex_file = os.path.basename(tex_path)
+	"""
+	Compila un archivo .tex y devuelve el log completo.
+	Muestra errores y advertencias sin detener el servidor.
+	"""
+	tex_dir = os.path.dirname(tex_path) or "."
+	tex_file = os.path.basename(tex_path)
 
-    try:
-        logs = ""
-        # Primera compilación
-        result = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", tex_file],
-            capture_output=True,
-            text=True, # text=True usa encoding='locale' por defecto
-                       # Para asegurar UTF-8 y manejar errores:
-            encoding='utf-8', errors='ignore', # AÑADIR ESTO
-            cwd=tex_dir
-        )
-        logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
-        if result.returncode != 0:
-            raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
+	try:
+		# Ejecutar pdflatex -> makeindex (si aplica) -> pdflatex
+		logs = ""
 
-        base = os.path.splitext(tex_file)[0]
-        posibles_indices = [
-            (f"{base}.idx", None),
-            (f"{base}.tema.idx", f"{base}.tema.ind"),
-            (f"{base}.titleidx", f"{base}.titleidx.ind"),
-        ]
-        for entrada, salida in posibles_indices:
-            entrada_path = os.path.join(tex_dir, entrada)
-            if os.path.exists(entrada_path):
-                cmd = ["makeindex", entrada]
-                if salida is not None:
-                    cmd = ["makeindex", "-o", salida, entrada]
-                else:
-                    cmd = ["makeindex", entrada]
-                    
-                mi = subprocess.run(cmd, capture_output=True, text=True,
-                                   encoding='utf-8', errors='ignore', # AÑADIR ESTO
-                                   cwd=tex_dir)
-                logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
+		# Primera pasada
+		result = subprocess.run(
+			["pdflatex", "-interaction=nonstopmode", tex_file],
+			capture_output=True,
+			text=True,
+			cwd=tex_dir
+		)
+		logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
+		if result.returncode != 0:
+			raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
 
-        # Segunda y tercera compilación para manejar índices y referencias cruzadas
-        for i in range(2): 
-            result_loop = subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", tex_file],
-                capture_output=True,
-                text=True,
-                encoding='utf-8', errors='ignore', # AÑADIR ESTO
-                cwd=tex_dir
-            )
-            logs += f"\n--- COMPILACIÓN {i+2} ---\n" + result_loop.stdout + result_loop.stderr
-            if result_loop.returncode != 0:
-                raise RuntimeError(f"Error compilando LaTeX en la iteración {i+2}.\nLog completo:\n{logs}")
+		# makeindex para índices conocidos (si existen)
+		base = os.path.splitext(tex_file)[0]
+		posibles_indices = [
+			(f"{base}.idx", None),
+			(f"{base}.tema.idx", f"{base}.tema.ind"),
+			(f"{base}.cbtitle", f"{base}.cbtitle.ind"),
+		]
+		for entrada, salida in posibles_indices:
+			entrada_path = os.path.join(tex_dir, entrada)
+			if os.path.exists(entrada_path):
+				cmd = ["makeindex", entrada]
+				if salida is not None:
+					cmd = ["makeindex", "-o", salida, entrada]
+				mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
+				logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
-        pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
-        if not os.path.exists(pdf_file):
-            raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
+		# Segunda pasada
+		result2 = subprocess.run(
+			["pdflatex", "-interaction=nonstopmode", tex_file],
+			capture_output=True,
+			text=True,
+			cwd=tex_dir
+		)
+		logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
+		if result2.returncode != 0:
+			raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
 
-        return logs
+		# Verificar que se generó PDF
+		pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
+		if not os.path.exists(pdf_file):
+			raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
 
-    except Exception as e:
-        raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
+		return logs
 
+	except Exception as e:
+		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
 @app.route("/", methods=["GET", "POST"])
 def index():
     texto = ""
-    filename = archivo_por_defecto
+
     try:
         if request.method == "POST":
             accion = request.form.get("accion")
-            filename = request.form.get("filename", archivo_por_defecto)
-            uploaded_file = request.files.get("archivo")
 
-            # Priorizar el archivo subido si existe
+            # 👉 Obtener texto del formulario o archivo
+            texto = request.form.get("texto", "")
+            uploaded_file = request.files.get("archivo")
             if uploaded_file and uploaded_file.filename:
                 texto = uploaded_file.read().decode("utf-8")
-                filename = uploaded_file.filename
-                return render_template_string(FORM_HTML, texto=texto, filename=filename, mensaje_exito=f"Archivo '{filename}' cargado exitosamente.")
 
-            if accion == "guardar":
+            # 👉 ABRIR
+            if accion in ("abrir"):
                 try:
-                    with open(filename, "w", encoding="utf-8") as f:
-                        f.write(request.form.get("texto", ""))
-                    return render_template_string(FORM_HTML, texto=request.form.get("texto", ""), filename=filename, mensaje_exito=f"Archivo '{filename}' guardado con éxito.")
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
                 except Exception:
                     return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                return render_template_string(FORM_HTML, texto=texto)
 
-            if accion == "abrir":
-                if os.path.exists(filename):
-                    with open(filename, "r", encoding="utf-8") as f:
-                        texto = f.read()
-                    return render_template_string(FORM_HTML, texto=texto, filename=filename, mensaje_exito=f"Archivo '{filename}' cargado con éxito.")
-                else:
-                    return render_template_string(FORM_HTML, texto="", filename=filename, mensaje_error=f"El archivo '{filename}' no existe.")
-
+            # 👉 GENERAR PDF (flujo original tuyo)
             if accion == "generar_pdf":
-                # Reiniciar el índice temático global para cada generación de PDF
-                global indice_tematica_global
-                indice_tematica_global = {}
-
                 try:
-                    contenido_canciones = convertir_songpro(request.form.get("texto", ""))
+                    # 1️⃣ Procesar canciones
+                    contenido_canciones = convertir_songpro(texto)
+
+                    # 2️⃣ Generar índice temático
                     indice_tematica = generar_indice_tematica()
 
+                    # 3️⃣ Reemplazo en la plantilla
                     def reemplazar(match):
                         return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
 
-                    # Usar un nombre de archivo fijo para la compilación del PDF para evitar problemas
-                    archivo_salida_tex = "cancionero_compilado.tex"
                     nuevo_tex = re.sub(
                         r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
                         reemplazar,
                         plantilla,
                         flags=re.S
                     )
-                    with open(archivo_salida_tex, "w", encoding="utf-8") as f:
+
+                    # 4️⃣ Guardar TEX
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
                         f.write(nuevo_tex)
 
-                    logs = compilar_tex_seguro(archivo_salida_tex)
+                    # 5️⃣ Compilar PDF
+                    logs = compilar_tex_seguro(archivo_salida)
 
-                    pdf_file = os.path.splitext(archivo_salida_tex)[0] + ".pdf"
+                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
                     if os.path.exists(pdf_file):
                         return send_file(pdf_file, as_attachment=False)
                     else:
-                        return f"<h3>PDF no generado.</h3><pre>Logs de compilación:\n{logs}</pre>"
+                        return "<h3>PDF no generado.</h3>"
 
                 except Exception:
                     return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
 
-        if 'filename' in request.args:
-            filename = request.args.get('filename')
-            if os.path.exists(filename):
-                with open(filename, "r", encoding="utf-8") as f:
-                    texto = f.read()
-        return render_template_string(FORM_HTML, texto=texto, filename=filename)
+        # GET inicial
+        return render_template_string(FORM_HTML, texto=texto)
 
     except Exception:
         return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
 
+
+# 🔹 HTML con "menú" y opción de generar PDF
 FORM_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Editor de Canciones</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; }
-        h2 { color: #333; }
-        textarea { width: 90%; max-width: 800px; height: 400px; padding: 10px; border: 1px solid #ccc; }
-        input[type="text"] { width: 90%; max-width: 300px; padding: 8px; border: 1px solid #ccc; }
-        input[type="file"] { margin-top: 10px; }
-        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; cursor: pointer; margin-right: 10px; }
-        button:hover { background-color: #0056b3; }
-        p.success { color: green; }
-        p.error { color: red; }
-    </style>
-</head>
-<body>
-    <h2>Editor de Canciones</h2>
-    {% if mensaje_exito %}
-        <p class="success">{{ mensaje_exito }}</p>
-    {% endif %}
-    {% if mensaje_error %}
-        <p class="error">{{ mensaje_error }}</p>
-    {% endif %}
-    <form method="post" enctype="multipart/form-data">
-        <p>
-            Para "Guardar como", introduce un nuevo nombre de archivo en el campo de texto y haz clic en "Guardar".
-        </p>
-        <label for="filename">Nombre del archivo:</label>
-        <input type="text" id="filename" name="filename" value="{{ filename }}"><br><br>
+<h2>Creador Cancionero</h2>
+<form method="post" enctype="multipart/form-data">
+    <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <button type="button" id="btnInsertB">Repit</button>
+    <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
 
-        <textarea name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <label for="archivo">O sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
+    <!-- Menú de acciones -->
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
+    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+</form>
 
-        <label for="archivo">O cargar un archivo de texto desde tu equipo:</label>
-        <input type="file" name="archivo" id="archivo"><br><br>
+<script>
+function insertarTexto(texto) {
+    const textarea = document.getElementById("texto");
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
 
-        <button type="submit" name="accion" value="guardar">Guardar</button>
-        <button type="submit" name="accion" value="abrir">Abrir</button>
-        <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
-    </form>
-</body>
-</html>
+    textarea.value = value.substring(0, start) + texto + value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
+    textarea.focus();
+}
+
+document.getElementById("btnInsertB").addEventListener("click", function() {
+    insertarTexto("B");
+});
+
+document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
+    insertarTexto("_");
+});
+</script>
 """
+
+@app.route("/descargar", methods=["POST"])
+def descargar():
+    texto = request.form.get("texto", "")
+    nombre_archivo = request.form.get("nombre_archivo", "cancionero.txt")
+
+    # Forzar descarga como archivo .txt
+    return Response(
+        texto,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment;filename={nombre_archivo}"}
+    )
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -822,14 +800,30 @@ def health():
 
 @app.route("/ver_log")
 def ver_log():
-    log_file = "cancionero_compilado.log"
-    if os.path.exists(log_file):
-        return send_file(log_file, mimetype="text/plain")
-    else:
-        return f"<h3>No se encontró el archivo de log '{log_file}'.</h3>"
+    return send_file("plantilla.log", mimetype="text/plain")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
