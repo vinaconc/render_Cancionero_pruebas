@@ -212,7 +212,8 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
             palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
             if es_indexada:
                 if palabra_para_indice not in indice_tematica_global:
-                    indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
+                    indice_tematica_global[palabra_para_indice] = set()
+                indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
 
                 # Escapar el '#' antes de pasarlo a LaTeX
                 escaped_base = base.replace('#', '\\#')
@@ -607,11 +608,10 @@ def generar_indice_tematica():
     for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
         canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
         
-        # CORRECCIÓN: Evitar la barra invertida directa en el f-string
-        enlaces = [
-            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]{{{c.replace('#', '\\#')}}}"
-            for c in canciones
-        ]
+        enlaces = []
+        for c in canciones:
+            titulo_escapado_para_latex = c.replace('#', '\\#')
+            enlaces.append(rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]{{{titulo_escapado_para_latex}}}")
         
         palabra_titulo_escapada = palabra.title().replace('#', '\\#')
         resultado.append(rf"  \item \textbf{{{palabra_titulo_escapada}}} --- {', '.join(enlaces)}")
