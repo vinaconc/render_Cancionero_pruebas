@@ -257,7 +257,7 @@ def procesar_bloque_simple_linea(linea_texto, transposicion):
     if es_linea_acordes(linea):
         acordes_tokens = linea.split()
         acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
-        acordes_para_mbox = ' '.join(rf'\chord{{{a.replace("#", "\\#")}}}' for a in acordes_transpuestos)
+        acordes_para_mbox = ' '.join(r'\chord{' + a.replace("#", "\\#") + r'}' for a in acordes_transpuestos)
         return rf'\mbox{{{acordes_para_mbox}}}'
     else:
         # Si es una línea de texto simple (no un comando V, C, M, N)
@@ -486,7 +486,7 @@ def convertir_songpro(texto):
                 cerrar_bloque() 
                 acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
                 # En este caso, la línea de acordes es la "letra"
-                linea_acordes_latex = ' '.join([f'\\chord{{{a}}}' for a in acordes_escapados_para_latex])
+                linea_acordes_latex = '\\mbox{' + ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex]) + '}'
                 resultado.append(rf'\textnote{{{linea_acordes_latex}}}' + r'\\')
                 i += 2
                 continue
@@ -821,3 +821,4 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
