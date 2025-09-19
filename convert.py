@@ -281,36 +281,36 @@ def convertir_songpro(texto):
 			cancion_abierta = False
 
 	def procesar_bloque_simple(texto, transposicion, es_seccion_n=False):
-    lineas = texto.strip().split('\n')
-    resultado = []
-    for linea in lineas:
-        linea = linea.strip()
-        if not linea:
-            continue
-        match = re.match(r'^([^:]+):\s*(.*)$', linea)
-        if match:
-            texto, acordes_linea = match.groups()
-            acordes = acordes_linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            if es_seccion_n:
-                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
-            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_convertidos)
-            resultado.append(rf'\textnote{{{texto.strip()}}}')
-            resultado.append(rf'\mbox{{{latex_acordes}}}')
-            continue
-        if es_linea_acordes(linea):
-            acordes = linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            if es_seccion_n:
-                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
-            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_convertidos)
-            resultado.append(rf'\mbox{{{latex_acordes}}}')
-            continue
-        else:
-            if linea.strip() in ('V', 'C', 'M', 'N'):
-                continue  # Evita colarlas como texto
-            resultado.append(linea + r'\\')
-    return '\n'.join(resultado)
+	    lineas = texto.strip().split('\n')
+	    resultado = []
+	    for linea in lineas:
+	        linea = linea.strip()
+	        if not linea:
+	            continue
+	        match = re.match(r'^([^:]+):\s*(.*)$', linea)
+	        if match:
+	            texto, acordes_linea = match.groups()
+	            acordes = acordes_linea.split()
+	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+	            if es_seccion_n:
+	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+	            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_convertidos)
+	            resultado.append(rf'\textnote{{{texto.strip()}}}')
+	            resultado.append(rf'\mbox{{{latex_acordes}}}')
+	            continue
+	        if es_linea_acordes(linea):
+	            acordes = linea.split()
+	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+	            if es_seccion_n:
+	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+	            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_convertidos)
+	            resultado.append(rf'\mbox{{{latex_acordes}}}')
+	            continue
+	        else:
+	            if linea.strip() in ('V', 'C', 'M', 'N'):
+	                continue  # Evita colarlas como texto
+	            resultado.append(linea + r'\\')
+	    return '\n'.join(resultado)
 
 		if linea.startswith('S '):
 			cerrar_bloque()
@@ -771,6 +771,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
