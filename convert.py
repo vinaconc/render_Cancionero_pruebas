@@ -249,6 +249,7 @@ def convertir_songpro(texto):
             return (r'\beginchorus', r'\endchorus')
         elif tb == 'melody':
             return (r'\beginverse', r'\endverse')
+        return None, None # Devuelve None si el tipo no es reconocido
 
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
@@ -257,27 +258,28 @@ def convertir_songpro(texto):
                 resultado.append(r'\beginverse')
                 resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
                 resultado.append(r'\endverse')
-            else:
+            elif tipo_bloque is not None: # Solo intentar obtener entorno si tipo_bloque es válido
                 begin, end = entorno(tipo_bloque)
-                # Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
-                if tipo_bloque == 'verse':
-                    letra_diagrama = 'A'
-                elif tipo_bloque == 'chorus':
-                    letra_diagrama = 'B'
-                elif tipo_bloque == 'melody':
-                    letra_diagrama = 'C'
-                else:
-                    letra_diagrama = 'A'
-                # Eliminar barras invertidas duplicadas y comillas
-                contenido = ' \\\\'.join(bloque_actual).replace('\\\\ \\\\', ' \\\\')
-                contenido = contenido.replace('"', '')
+                if begin and end: # Asegúrate de que entorno no devolvió None
+                    # Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
+                    if tipo_bloque == 'verse':
+                        letra_diagrama = 'A'
+                    elif tipo_bloque == 'chorus':
+                        letra_diagrama = 'B'
+                    elif tipo_bloque == 'melody':
+                        letra_diagrama = 'C'
+                    else:
+                        letra_diagrama = 'A'
+                    # Eliminar barras invertidas duplicadas y comillas
+                    contenido = ' \\\\'.join(bloque_actual).replace('\\\\ \\\\', ' \\\\')
+                    contenido = contenido.replace('"', '')
 
-                # Ahora, SÍ escapamos el '#' para LaTeX aquí
-                contenido_escapado = contenido.replace('#', '\\#')
+                    # Ahora, SÍ escapamos el '#' para LaTeX aquí
+                    contenido_escapado = contenido.replace('#', '\\#')
 
-                resultado.append(begin)
-                resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_escapado}}}")
-                resultado.append(end)
+                    resultado.append(begin)
+                    resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_escapado}}}")
+                    resultado.append(end)
         # Siempre limpiar bloque actual y tipo
         bloque_actual = []
         tipo_bloque = None
@@ -342,6 +344,7 @@ def convertir_songpro(texto):
         temp_linea = linea.replace('\\_', '_').replace('\\#', '#')
 
         if temp_linea.lower().startswith("ref="):
+            cerrar_bloque() # Cerrar el bloque actual antes de la referencia
             contenido = temp_linea[4:].strip()
             if contenido.startswith('(') and contenido.endswith(')'):
                 referencia_pendiente = contenido[1:-1]
@@ -349,6 +352,7 @@ def convertir_songpro(texto):
             continue
 
         if not temp_linea:
+            cerrar_bloque() # Cerrar el bloque en una línea vacía, si hay alguno.
             i += 1
             continue
 
@@ -444,12 +448,16 @@ def convertir_songpro(texto):
                 i += 1
                 continue
             else:
+                # Si no es un coro, la trata como una línea normal de texto
                 pass
 
-        if i > 0 and lineas[i - 1].strip().replace('\\_', '_').replace('\\#', '#') in ('V', 'C', 'M'):
-            cerrar_bloque()
+        if i > 0 and lineas[i - 1].strip().replace('\\_', '_').replace('\\#', '#') in ('V', 'C', 'M', 'N'):
+             # No cerramos bloque aquí, porque la línea actual podría ser parte del mismo.
+             # La lógica de cerrar_bloque se encarga al encontrar un nuevo comando de bloque o al final del archivo.
+             pass
 
         # Procesa líneas con acordes separados del texto
+        # Esta es la lógica principal para las letras y acordes
         if i + 1 < len(lineas) and es_linea_acordes(temp_linea):
             acordes_originales = temp_linea.strip().split()
             acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
