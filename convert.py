@@ -365,11 +365,11 @@ def convertir_songpro(texto):
                 continue
             linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
             if rep_ini and rep_fin:
-                linea_convertida = r'\\lrep ' + linea_convertida + rf' \\rrep \\rep{{{repeticiones}}}'
+                linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
             elif rep_ini:
-                linea_convertida = r'\\lrep ' + linea_convertida
+                linea_convertida = r'\lrep ' + linea_convertida
             elif rep_fin:
-                linea_convertida = linea_convertida + rf' \\rrep \\rep{{{repeticiones}}}'
+                linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
             bloque_actual.append(linea_convertida)
             i += 3
             continue
@@ -560,6 +560,7 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
