@@ -84,6 +84,15 @@ def transportar_acorde(acorde, semitonos):
 def limpiar_para_indice(palabra):
 	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
 
+def escapar_acorde_latex(acorde):
+    acorde = acorde.replace('#', '\\#')
+    acorde = acorde.replace('_', '\\_')
+    acorde = acorde.replace('%', '\\%')
+    acorde = acorde.replace('{', '\\{')
+    acorde = acorde.replace('}', '\\}')
+    acorde = acorde.replace('&', '\\&')
+    return acorde
+
 def es_linea_acordes(linea):
 	tokens = linea.split()
 	if not tokens:
@@ -169,7 +178,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 		if base == '_':
 			if idx_acorde < len(acordes):
 				# Escapar sostenidos en acordes para LaTeX
-				acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
+				acorde_escapado = escapar_acorde_latex(acordes[idx_acorde])
 				resultado += f"\\raisebox{{1.7ex}}{{\\[{acorde_escapado}]}} "
 				idx_acorde += 1
 			else:
@@ -183,7 +192,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 			for i, parte in enumerate(partes):
 				if i > 0 and idx_acorde < len(acordes):
 					# Escapar sostenidos en acordes para LaTeX
-					acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
+					acorde_escapado = escapar_acorde_latex(acordes[idx_acorde])
 					latex += f"\\[{acorde_escapado}]"
 					idx_acorde += 1
 				latex += parte
@@ -791,6 +800,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
