@@ -5,7 +5,7 @@ import subprocess
 import re
 import unicodedata
 
-app = Flask(__name__)
+app = Flask(__app__)
 
 # NOTA: Usar un directorio temporal para archivos de salida en un entorno de producción es más seguro.
 # Para este ejemplo simple, se usa el mismo directorio.
@@ -246,8 +246,8 @@ def procesar_bloque_simple_linea(linea_texto, transposicion):
         acordes_tokens = acordes_linea_raw.split()
         acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
         
-        # Unir los acordes en un solo string para el \mbox
-        acordes_para_mbox = ' '.join(rf'\chord{{{a.replace("#", "\\#")}}}' for a in acordes_transpuestos)
+        # --- CORRECCIÓN AQUÍ (LÍNEA 250 ORIGINAL) ---
+        acordes_para_mbox = ' '.join(r'\chord{' + a.replace("#", "\\#") + r'}' for a in acordes_transpuestos)
         
         texto_linea_escapado = texto_linea.strip().replace("#", "\\#")
         
@@ -257,6 +257,7 @@ def procesar_bloque_simple_linea(linea_texto, transposicion):
     if es_linea_acordes(linea):
         acordes_tokens = linea.split()
         acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
+        # --- CORRECCIÓN AQUÍ (SIMILAR AL ANTERIOR) ---
         acordes_para_mbox = ' '.join(r'\chord{' + a.replace("#", "\\#") + r'}' for a in acordes_transpuestos)
         return rf'\mbox{{{acordes_para_mbox}}}'
     else:
@@ -267,7 +268,9 @@ def procesar_bloque_simple_linea(linea_texto, transposicion):
         # Si contiene guiones bajos o almohadillas (para índices o acordes embebidos)
         if '_' in linea or '#' in linea:
             # Reutiliza procesar_linea_con_acordes_y_indices
-            linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+            # Asumiendo que 'titulo_cancion_actual' está definido en el ámbito global o se pasa.
+            # Aquí lo paso como "" para evitar un error de NameError si no está disponible.
+            linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], globals().get('titulo_cancion_actual', ''))
             # Envuelve en \textnote ya que es texto de letra
             return rf'\textnote{{{linea_procesada_para_lyrics}}}' # No añade \\ aquí, lo gestiona el llamador
         else:
@@ -291,6 +294,7 @@ def convertir_songpro(texto):
     tipo_bloque = None
     seccion_abierta = False
     cancion_abierta = False
+    global titulo_cancion_actual # Necesario para procesar_linea_con_acordes_y_indices
     titulo_cancion_actual = ""
     transposicion = 0
 
@@ -486,14 +490,15 @@ def convertir_songpro(texto):
                 cerrar_bloque() 
                 acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
                 # En este caso, la línea de acordes es la "letra"
-                linea_acordes_latex = '\\mbox{' + ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex]) + '}'
+                linea_acordes_latex = ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex])
                 resultado.append(rf'\textnote{{{linea_acordes_latex}}}' + r'\\')
                 i += 2
                 continue
             
             # Formatear línea de acordes
             acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
-            linea_acordes_latex = '\\mbox{' + ' '.join([f'\\chord{{{a}}}' for a in acordes_escapados_para_latex]) + '}'
+            # --- CORRECCIÓN AQUÍ (LÍNEA ~461 ORIGINAL) ---
+            linea_acordes_latex = '\\mbox{' + ' '.join([r'\chord{' + a + r'}' for a in acordes_escapados_para_latex]) + '}'
 
             # Formatear línea de letra
             if '_' in letras_raw or '#' in letras_raw:
@@ -821,4 +826,3 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
