@@ -312,85 +312,85 @@ def convertir_songpro(texto):
 	            resultado.append(linea + r'\\')
 	    return '\n'.join(resultado)
 
-		if linea.startswith('S '):
-			cerrar_bloque()
-			cerrar_cancion()
-			if seccion_abierta:
-				resultado.append(r'\end{songs}')
-			seccion_abierta = True
-			resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
-			resultado.append(r'\begin{songs}{titleidx}')
-			i += 1
-			continue
+			if linea.startswith('S '):
+				cerrar_bloque()
+				cerrar_cancion()
+				if seccion_abierta:
+					resultado.append(r'\end{songs}')
+				seccion_abierta = True
+				resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
+				resultado.append(r'\begin{songs}{titleidx}')
+				i += 1
+				continue
+	
+			if linea.startswith('O '):
+				cerrar_bloque()
+				cerrar_cancion()
+				partes = linea[2:].strip().split()
+				transposicion = 0
+				if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
+					transposicion = int(partes[-1].replace('=', ''))
+					partes = partes[:-1]
+				titulo_cancion_actual = ' '.join(partes).title()
+	
+				etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+	
+				resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+				resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
+				resultado.append(r'\phantomsection')
+				resultado.append(rf'\label{{{etiqueta}}}')
+	
+				cancion_abierta = True
+				i += 1
+				continue
 
-		if linea.startswith('O '):
-			cerrar_bloque()
-			cerrar_cancion()
-			partes = linea[2:].strip().split()
-			transposicion = 0
-			if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
-				transposicion = int(partes[-1].replace('=', ''))
-				partes = partes[:-1]
-			titulo_cancion_actual = ' '.join(partes).title()
-
-			etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
-
-			resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-			resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
-			resultado.append(r'\phantomsection')
-			resultado.append(rf'\label{{{etiqueta}}}')
-
-			cancion_abierta = True
-			i += 1
-			continue
-
-		if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
-			cerrar_bloque()
-			cerrar_cancion()
-			titulo_cancion_actual = linea.title()
-
-			etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
-
-			resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-			resultado.append(r'\phantomsection')
-			resultado.append(rf'\label{{{etiqueta}}}')
-
-			cancion_abierta = True
-			i += 1
-			continue
-
-		if linea == 'O':
-			cerrar_bloque()
-			cerrar_cancion()
-			titulo_cancion_actual = ""
-			resultado.append(r'\beginsong{}')
-			cancion_abierta = True
-			i += 1
-			continue
-
-		if not cancion_abierta:
-			resultado.append(r'\beginsong{}')
-			cancion_abierta = True
-
-		if linea == 'V':
-			cerrar_bloque()
-			tipo_bloque = 'verse'
-			acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
-			i += 1
-			continue
-
-		if linea == 'M':  # Nueva marca para melodía distinta
-			cerrar_bloque()
-			tipo_bloque = 'melody'
-			acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
-			i += 1
-			continue
-
-		if linea == 'N':
-			cerrar_bloque()
-			tipo_bloque = 'nodiagram'
-			i += 1
-			continue
+			if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
+				cerrar_bloque()
+				cerrar_cancion()
+				titulo_cancion_actual = linea.title()
+	
+				etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+	
+				resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+				resultado.append(r'\phantomsection')
+				resultado.append(rf'\label{{{etiqueta}}}')
+	
+				cancion_abierta = True
+				i += 1
+				continue
+	
+			if linea == 'O':
+				cerrar_bloque()
+				cerrar_cancion()
+				titulo_cancion_actual = ""
+				resultado.append(r'\beginsong{}')
+				cancion_abierta = True
+				i += 1
+				continue
+	
+			if not cancion_abierta:
+				resultado.append(r'\beginsong{}')
+				cancion_abierta = True
+	
+			if linea == 'V':
+				cerrar_bloque()
+				tipo_bloque = 'verse'
+				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+				i += 1
+				continue
+	
+			if linea == 'M':  # Nueva marca para melodía distinta
+				cerrar_bloque()
+				tipo_bloque = 'melody'
+				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+				i += 1
+				continue
+	
+			if linea == 'N':
+				cerrar_bloque()
+				tipo_bloque = 'nodiagram'
+				i += 1
+				continue
 
 
 
@@ -771,6 +771,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
