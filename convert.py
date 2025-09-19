@@ -312,232 +312,232 @@ def convertir_songpro(texto):
 	            resultado.append(linea + r'\\')
 	    return '\n'.join(resultado)
 
-			if linea.startswith('S '):
+				if linea.startswith('S '):
+					cerrar_bloque()
+					cerrar_cancion()
+					if seccion_abierta:
+						resultado.append(r'\end{songs}')
+					seccion_abierta = True
+					resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
+					resultado.append(r'\begin{songs}{titleidx}')
+					i += 1
+					continue
+		
+				if linea.startswith('O '):
+					cerrar_bloque()
+					cerrar_cancion()
+					partes = linea[2:].strip().split()
+					transposicion = 0
+					if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
+						transposicion = int(partes[-1].replace('=', ''))
+						partes = partes[:-1]
+					titulo_cancion_actual = ' '.join(partes).title()
+		
+					etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+		
+					resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+					resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
+					resultado.append(r'\phantomsection')
+					resultado.append(rf'\label{{{etiqueta}}}')
+		
+					cancion_abierta = True
+					i += 1
+					continue
+
+				if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
+					cerrar_bloque()
+					cerrar_cancion()
+					titulo_cancion_actual = linea.title()
+		
+					etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+		
+					resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+					resultado.append(r'\phantomsection')
+					resultado.append(rf'\label{{{etiqueta}}}')
+		
+					cancion_abierta = True
+					i += 1
+					continue
+		
+				if linea == 'O':
+					cerrar_bloque()
+					cerrar_cancion()
+					titulo_cancion_actual = ""
+					resultado.append(r'\beginsong{}')
+					cancion_abierta = True
+					i += 1
+					continue
+		
+				if not cancion_abierta:
+					resultado.append(r'\beginsong{}')
+					cancion_abierta = True
+		
+				if linea == 'V':
+					cerrar_bloque()
+					tipo_bloque = 'verse'
+					acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+					i += 1
+					continue
+		
+				if linea == 'M':  # Nueva marca para melodía distinta
+					cerrar_bloque()
+					tipo_bloque = 'melody'
+					acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+					i += 1
+					continue
+		
+				if linea == 'N':
+					cerrar_bloque()
+					tipo_bloque = 'nodiagram'
+					i += 1
+					continue
+	
+	
+	
+			# Look ahead for a chord line and a lyric line
+				if i + 2 < len(lineas) and es_linea_acordes(lineas[i+1]) and not es_linea_acordes(lineas[i+2]):
+			# ... (rest of the processing logic)
+					i += 3 # Advance by 3 lines (V, chords, lyrics)
+					continue
+				else:
+					i += 1 # Just advance by 1 for the V/C line
+					continue
+
+
+
+				if linea == 'C':
+					# Verificamos si la siguiente línea es una línea de acordes.
+					# Solo si SÍ lo es, 'C' es un marcador de coro.
+					if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
+						cerrar_bloque() # Cierra el bloque anterior antes de empezar el coro
+						tipo_bloque = 'chorus'
+						acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
+						i += 1 # Consumimos la línea 'C'
+						continue # Continuamos al siguiente ciclo para procesar la línea de acordes/letra
+					else:
+						# Si 'C' NO es seguido por acordes (gracias a la 'es_linea_acordes' corregida),
+						# lo tratamos como una línea de letra normal.
+						# NO cambiamos el tipo_bloque a 'chorus' aquí.
+						# La línea 'C' será procesada por el bloque de lógica de texto general (más abajo).
+						pass 
+
+			if i > 0 and lineas[i - 1].strip() in ('V', 'C', 'M'):
 				cerrar_bloque()
-				cerrar_cancion()
-				if seccion_abierta:
-					resultado.append(r'\end{songs}')
-				seccion_abierta = True
-				resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
-				resultado.append(r'\begin{songs}{titleidx}')
-				i += 1
-				continue
+				if lineas[i - 1].strip() == 'V':
+					tipo_bloque = 'verse'
+				elif lineas[i - 1].strip() == 'C':
+					tipo_bloque = 'chorus'
+				elif lineas[i - 1].strip() == 'M':
+					tipo_bloque = 'melody'
 	
-			if linea.startswith('O '):
-				cerrar_bloque()
-				cerrar_cancion()
-				partes = linea[2:].strip().split()
-				transposicion = 0
-				if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
-					transposicion = int(partes[-1].replace('=', ''))
-					partes = partes[:-1]
-				titulo_cancion_actual = ' '.join(partes).title()
+			if i + 1 < len(lineas) and es_linea_acordes(lineas[i]): # Asegura que la línea actual son acordes
+				acordes_originales = lineas[i].strip().split()
+				acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
+				letras_raw = lineas[i + 1].strip()
+				if letras_raw.startswith("//") and letras_raw.endswith("//"):
+					letras_raw = letras_raw[2:-2].strip()
 	
-				etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+				rep_ini = letras_raw.startswith('B ')
+				if rep_ini:
+					letras_raw = letras_raw[2:].lstrip()
+				rep_fin = False
+				repeticiones = 2 # valor por defecto
 	
-				resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-				resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
-				resultado.append(r'\phantomsection')
-				resultado.append(rf'\label{{{etiqueta}}}')
+				# Detectar repetición final explícita con B=n
+				m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
+				if m_fin:
+					rep_fin = True
+					repeticiones = int(m_fin.group(1))
+					letras_raw = letras_raw[:m_fin.start()].rstrip()
+				elif letras_raw.endswith(' B'):
+					rep_fin = True
+					letras_raw = letras_raw[:-2].rstrip()
 	
-				cancion_abierta = True
-				i += 1
-				continue
-
-			if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
-				cerrar_bloque()
-				cerrar_cancion()
-				titulo_cancion_actual = linea.title()
+				if letras_raw == '_':
+					cerrar_bloque()
+					resultado.append(f"\\textnote{{{acordes[0]}}}")
+					i += 2
+					continue
 	
-				etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+				if not ('_' in letras_raw or '#' in letras_raw):
+					# Escapar sostenidos en acordes para LaTeX
+					acordes_escapados = [a.replace('#', '\\#') for a in acordes]
+					bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')  # Sin '\\'
+					bloque_actual.append(letras_raw)  # Sin '\\'
+					i += 2
+					continue
 	
-				resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-				resultado.append(r'\phantomsection')
-				resultado.append(rf'\label{{{etiqueta}}}')
-	
-				cancion_abierta = True
-				i += 1
-				continue
-	
-			if linea == 'O':
-				cerrar_bloque()
-				cerrar_cancion()
-				titulo_cancion_actual = ""
-				resultado.append(r'\beginsong{}')
-				cancion_abierta = True
-				i += 1
-				continue
-	
-			if not cancion_abierta:
-				resultado.append(r'\beginsong{}')
-				cancion_abierta = True
-	
-			if linea == 'V':
-				cerrar_bloque()
-				tipo_bloque = 'verse'
-				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
-				i += 1
-				continue
-	
-			if linea == 'M':  # Nueva marca para melodía distinta
-				cerrar_bloque()
-				tipo_bloque = 'melody'
-				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
-				i += 1
-				continue
-	
-			if linea == 'N':
-				cerrar_bloque()
-				tipo_bloque = 'nodiagram'
-				i += 1
+				linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+				if rep_ini and rep_fin:
+					linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+				elif rep_ini:
+					linea_convertida = r'\lrep ' + linea_convertida
+				elif rep_fin:
+					linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+				bloque_actual.append(linea_convertida)
+				i += 2
 				continue
 
-
-
-		# Look ahead for a chord line and a lyric line
-			if i + 2 < len(lineas) and es_linea_acordes(lineas[i+1]) and not es_linea_acordes(lineas[i+2]):
-		# ... (rest of the processing logic)
-				i += 3 # Advance by 3 lines (V, chords, lyrics)
-				continue
-			else:
-				i += 1 # Just advance by 1 for the V/C line
-				continue
-
-
-
-		if linea == 'C':
-			# Verificamos si la siguiente línea es una línea de acordes.
-			# Solo si SÍ lo es, 'C' es un marcador de coro.
-			if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
-				cerrar_bloque() # Cierra el bloque anterior antes de empezar el coro
-				tipo_bloque = 'chorus'
-				acordes_linea_anterior = [] # Limpiar acordes pendientes al cambiar de bloque
-				i += 1 # Consumimos la línea 'C'
-				continue # Continuamos al siguiente ciclo para procesar la línea de acordes/letra
-			else:
-				# Si 'C' NO es seguido por acordes (gracias a la 'es_linea_acordes' corregida),
-				# lo tratamos como una línea de letra normal.
-				# NO cambiamos el tipo_bloque a 'chorus' aquí.
-				# La línea 'C' será procesada por el bloque de lógica de texto general (más abajo).
-				pass 
-
-		if i > 0 and lineas[i - 1].strip() in ('V', 'C', 'M'):
+				if tipo_bloque and not es_linea_acordes(linea):
+					if linea in ('V', 'C', 'M', 'N'):
+						i += 1
+						continue
+					# Detectar repetición inicial 'B '
+		
+					rep_ini = linea.startswith('B ')
+					if rep_ini:
+						linea = linea[2:].lstrip()
+		
+					rep_fin = False
+					repeticiones = 2  # valor por defecto
+		
+					# Detectar repetición final ' B' o 'B=3' o 'b=4'
+					m_fin = re.search(r'\s+[Bb]=(\d+)$', linea)
+					if m_fin:
+						rep_fin = True
+						repeticiones = int(m_fin.group(1))
+						linea = linea[:m_fin.start()].rstrip()
+					elif linea.endswith(' B') or linea.endswith(' b'):
+						rep_fin = True
+						linea = linea[:-2].rstrip()
+		
+					# Ahora procesamos con o sin acordes incrustados
+					if '_' in linea or '#' in linea:
+						linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+					else:
+						linea_procesada = linea
+		
+					if rep_ini and rep_fin:
+						linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+					elif rep_ini:
+						linea_procesada = r'\lrep ' + linea_procesada
+					elif rep_fin:
+						linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+		
+					bloque_actual.append(linea_procesada)
+					i += 1
+					continue
+					if linea in ('V', 'C', 'M', 'N'):
+						i += 1
+						continue
+					if linea == 'V':
+						cerrar_bloque()
+						tipo_bloque = 'verse'
+						acordes_linea_anterior = []
+						i += 1
+						continue
+					if linea == 'M':
+						cerrar_bloque()
+						tipo_bloque = 'melody'
+						acordes_linea_anterior = []
+						i += 1
+						continue
 			cerrar_bloque()
-			if lineas[i - 1].strip() == 'V':
-				tipo_bloque = 'verse'
-			elif lineas[i - 1].strip() == 'C':
-				tipo_bloque = 'chorus'
-			elif lineas[i - 1].strip() == 'M':
-				tipo_bloque = 'melody'
-
-		if i + 1 < len(lineas) and es_linea_acordes(lineas[i]): # Asegura que la línea actual son acordes
-			acordes_originales = lineas[i].strip().split()
-			acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
-			letras_raw = lineas[i + 1].strip()
-			if letras_raw.startswith("//") and letras_raw.endswith("//"):
-				letras_raw = letras_raw[2:-2].strip()
-
-			rep_ini = letras_raw.startswith('B ')
-			if rep_ini:
-				letras_raw = letras_raw[2:].lstrip()
-			rep_fin = False
-			repeticiones = 2 # valor por defecto
-
-			# Detectar repetición final explícita con B=n
-			m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
-			if m_fin:
-				rep_fin = True
-				repeticiones = int(m_fin.group(1))
-				letras_raw = letras_raw[:m_fin.start()].rstrip()
-			elif letras_raw.endswith(' B'):
-				rep_fin = True
-				letras_raw = letras_raw[:-2].rstrip()
-
-			if letras_raw == '_':
-				cerrar_bloque()
-				resultado.append(f"\\textnote{{{acordes[0]}}}")
-				i += 2
-				continue
-
-			if not ('_' in letras_raw or '#' in letras_raw):
-				# Escapar sostenidos en acordes para LaTeX
-				acordes_escapados = [a.replace('#', '\\#') for a in acordes]
-				bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')  # Sin '\\'
-				bloque_actual.append(letras_raw)  # Sin '\\'
-				i += 2
-				continue
-
-			linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
-			if rep_ini and rep_fin:
-				linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
-			elif rep_ini:
-				linea_convertida = r'\lrep ' + linea_convertida
-			elif rep_fin:
-				linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
-			bloque_actual.append(linea_convertida)
-			i += 2
-			continue
-
-		if tipo_bloque and not es_linea_acordes(linea):
-			if linea in ('V', 'C', 'M', 'N'):
-				i += 1
-				continue
-			# Detectar repetición inicial 'B '
-
-			rep_ini = linea.startswith('B ')
-			if rep_ini:
-				linea = linea[2:].lstrip()
-
-			rep_fin = False
-			repeticiones = 2  # valor por defecto
-
-			# Detectar repetición final ' B' o 'B=3' o 'b=4'
-			m_fin = re.search(r'\s+[Bb]=(\d+)$', linea)
-			if m_fin:
-				rep_fin = True
-				repeticiones = int(m_fin.group(1))
-				linea = linea[:m_fin.start()].rstrip()
-			elif linea.endswith(' B') or linea.endswith(' b'):
-				rep_fin = True
-				linea = linea[:-2].rstrip()
-
-			# Ahora procesamos con o sin acordes incrustados
-			if '_' in linea or '#' in linea:
-				linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
-			else:
-				linea_procesada = linea
-
-			if rep_ini and rep_fin:
-				linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
-			elif rep_ini:
-				linea_procesada = r'\lrep ' + linea_procesada
-			elif rep_fin:
-				linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
-
-			bloque_actual.append(linea_procesada)
-			i += 1
-			continue
-			if linea in ('V', 'C', 'M', 'N'):
-				i += 1
-				continue
-			if linea == 'V':
-				cerrar_bloque()
-				tipo_bloque = 'verse'
-				acordes_linea_anterior = []
-				i += 1
-				continue
-			if linea == 'M':
-				cerrar_bloque()
-				tipo_bloque = 'melody'
-				acordes_linea_anterior = []
-				i += 1
-				continue
-	cerrar_bloque()
-	cerrar_cancion()
-	if seccion_abierta:
-		resultado.append(r'\end{songs}')
-
-	return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+			cerrar_cancion()
+			if seccion_abierta:
+				resultado.append(r'\end{songs}')
+		
+			return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
 
 def normalizar(palabra):
 	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
@@ -771,6 +771,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
