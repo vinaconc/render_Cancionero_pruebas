@@ -312,22 +312,6 @@ def convertir_songpro(texto):
             resultado.append(linea + r'\\')
     return '\n'.join(resultado)
 
-	i = 0
-	while i < len(lineas):
-		linea = lineas[i].strip()
-		if linea.lower().startswith("ref="):
-			contenido = linea[4:].strip()
-			if contenido.startswith('(') and contenido.endswith(')'):
-				referencia_pendiente = contenido[1:-1]
-			i += 1
-			continue
-
-		if not linea:
-			i += 1
-			continue
-
-
-
 		if linea.startswith('S '):
 			cerrar_bloque()
 			cerrar_cancion()
@@ -787,6 +771,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
