@@ -167,19 +167,24 @@ def convertir_a_latex(acorde):
 
 	return acorde
 
-def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#'):
+def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#', es_seccion_n=False):
 	resultado = ''
 	idx_acorde = 0
 	palabras = linea.strip().split()
 
 	for palabra in palabras:
+		if es_seccion_n:
+			palabra = palabra.replace('#', r'\#')
 		es_indexada = palabra.startswith(simbolo)
-		index_real = None
+        index_real = None
 
 		if es_indexada and '=' in palabra:
 			base, index_real = palabra[1:].split('=', 1)
 		else:
 			base = palabra[1:] if es_indexada else palabra
+		if es_seccion_n:
+            # Si el base contenía # originalmente, ya está escapado arriba.
+            pass
 
 		if base == '_':
 			if idx_acorde < len(acordes):
@@ -502,7 +507,9 @@ def convertir_songpro(texto):
 				i += 2
 				continue
 
-			linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+			prev_marker = lineas[i-1].strip() if i-1 >= 0 else ''
+			es_seccion_n_flag = (prev_marker == 'N' or prev_marker == 'V' or tipo_bloque in ('nodiagram','verse'))
+			linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual, es_seccion_n=es_seccion_n_flag)
 			if rep_ini and rep_fin:
 				linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
 			elif rep_ini:
@@ -538,7 +545,9 @@ def convertir_songpro(texto):
 
 			# Ahora procesamos con o sin acordes incrustados
 			if '_' in linea or '#' in linea:
-				linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+				es_seccion_n_flag = (tipo_bloque in ('nodiagram','verse'))
+				linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual, es_seccion_n=es_seccion_n_flag)
+
 			else:
 				linea_procesada = linea
 
@@ -806,6 +815,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
