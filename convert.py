@@ -197,7 +197,7 @@ def convertir_songpro(texto):
                 begin, end = entorno(tipo_bloque)
                 if begin_end == (None, None):
     # Manejar el caso, por ejemplo, ignorar el bloque o dar aviso
-                return
+                    return
                 begin, end = begin_end
                 if tipo_bloque == 'verse':
                     letra_diagrama = 'A'
@@ -559,5 +559,6 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
