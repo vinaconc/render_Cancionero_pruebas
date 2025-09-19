@@ -212,8 +212,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
             palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
             if es_indexada:
                 if palabra_para_indice not in indice_tematica_global:
-                    indice_tematica_global[palabra_para_indice] = set()
-                indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
+                    indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
 
                 # Escapar el '#' antes de pasarlo a LaTeX
                 escaped_base = base.replace('#', '\\#')
@@ -260,7 +259,7 @@ def convertir_songpro(texto):
                 resultado.append(r'\beginverse')
                 # Las líneas de nodiagram se procesan individualmente, no como un diagrama
                 for linea_contenido in bloque_actual:
-                    resultado.append(procesar_bloque_simple(linea_contenido, transposicion))
+                    resultado.append(procesar_bloque_simple_linea(linea_contenido, transposicion))
                 resultado.append(r'\endverse')
             elif tipo_bloque is not None:
                 begin, end = entorno(tipo_bloque)
@@ -274,47 +273,7 @@ def convertir_songpro(texto):
                     else: # Fallback, aunque no debería ocurrir con las comprobaciones anteriores
                         letra_diagrama = 'A'
                     
-                    # Unir las líneas del bloque.
-                    # Ya hemos escapado los '#' en los acordes y el texto en las funciones de procesamiento.
-                    # No debemos re-escapar aquí.
-                    contenido_unido = ' '.join(bloque_actual) 
-                    
-                    # Eliminar barras invertidas duplicadas y comillas
-                    # La lógica de reemplazar '\\\\ \\\\' por ' \\\\' está pensada para `diagram` que espera una secuencia
-                    # de acordes y texto. Si `bloque_actual` ya tiene `\\` al final de cada línea,
-                    # al unirlos con ' \\\\' se crean `\\\\`.
-                    # Lo más simple es que cada línea ya venga preparada para diagram o simple.
-                    
-                    # Si el contenido ya está escapado y formateado, solo debemos unir.
-                    # El `diagram` de songs.sty se encarga de los saltos de línea internos con `\\`.
-                    # Si ya estamos agregando `\\` al final de cada línea en `bloque_actual`,
-                    # entonces un simple `join` basta.
-                    # Pero si `bloque_actual` contiene líneas de texto simple, debemos agregar el `\\`.
-                    # La estrategia actual en `procesar_bloque_simple` ya añade `\\` a las líneas de texto.
-
-                    # Para evitar el doble escapado y problemas en el diagrama,
-                    # asegúrate de que cada elemento en bloque_actual está formateado para LaTeX
-                    # y no necesita más escapado aquí.
-                    # La eliminación de comillas no debería ser necesaria si el escapado es correcto.
-
-                    # Se asume que bloque_actual contiene elementos ya preparados para LaTeX.
-                    # Si hay saltos de línea adicionales, se espera que estén incluidos en los elementos.
-                    # Si no, el `diagram` los interpretará como espacio.
-
-                    # La corrección más segura es asegurar que procesar_bloque_simple
-                    # ya emita el string final para cada línea del bloque.
-                    # Y para los bloques 'diagram' debemos pasarlo como un solo string largo.
-                    # Por el `diagram` command, las líneas deben estar unidas con ` \\ ` y el '#' escapado.
-                    # PERO: si ya hemos escapado `#` a `\\#` en `procesar_linea_con_acordes_y_indices` y `procesar_bloque_simple`,
-                    # entonces hacer `replace('#', '\\#')` aquí sería un DOBLE ESCAPADO.
-                    
-                    # Por tanto, aquí simplemente unimos. El escapado de '#' debe ocurrir ANTES
-                    # de que el texto llegue a `bloque_actual`.
-
-                    contenido_final_para_diagram = " \\\\ ".join(bloque_actual).replace("  \\\\  ", " \\\\ ")
-                    
-                    # Finalmente, elimina cualquier doble barra invertida extra si se coló
-                    # (ej. de "texto \\ \\ acordes" a "texto \\ acordes")
+                    contenido_final_para_diagram = " \\\\ ".join(bloque_actual)
                     contenido_final_para_diagram = re.sub(r'\\\\(\s*\\\\)*', r'\\\\', contenido_final_para_diagram)
                     
                     resultado.append(begin)
@@ -647,8 +606,10 @@ def generar_indice_tematica():
 
     for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
         canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
+        
+        # CORRECCIÓN: Evitar la barra invertida directa en el f-string
         enlaces = [
-            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c.replace('#', '\\#')}}}" # Escapar # en el texto del enlace
+            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]{{{c.replace('#', '\\#')}}}"
             for c in canciones
         ]
         
