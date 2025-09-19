@@ -179,6 +179,8 @@ def convertir_songpro(texto):
             return (r'\beginchorus', r'\endchorus')
         elif tb == 'melody':
             return (r'\beginverse', r'\endverse')
+        else:
+        return (None, None)
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
         if bloque_actual:
@@ -193,6 +195,10 @@ def convertir_songpro(texto):
                 resultado.append(r'\endverse')
             else:
                 begin, end = entorno(tipo_bloque)
+                if begin_end == (None, None):
+    # Manejar el caso, por ejemplo, ignorar el bloque o dar aviso
+                return
+                begin, end = begin_end
                 if tipo_bloque == 'verse':
                     letra_diagrama = 'A'
                 elif tipo_bloque == 'chorus':
@@ -553,3 +559,4 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
