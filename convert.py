@@ -194,9 +194,9 @@ def convertir_songpro(texto):
                 resultado.append(r'\end{minipage}')
                 resultado.append(r'\endverse')
             else:
-                begin, end = entorno(tipo_bloque)
+                begin_end = entorno(tipo_bloque)
                 if begin_end == (None, None):
-    # Manejar el caso, por ejemplo, ignorar el bloque o dar aviso
+                    # Manejar caso no reconocido
                     return
                 begin, end = begin_end
                 if tipo_bloque == 'verse':
@@ -207,7 +207,8 @@ def convertir_songpro(texto):
                     letra_diagrama = 'C'
                 else:
                     letra_diagrama = 'A'
-                contenido = ' \\'.join(bloque_actual) + ' \\'
+                # Mejor usar salto de línea para unir, evita errores en LaTeX
+                contenido = '\n'.join(bloque_actual)
                 contenido = contenido.replace('"', '')
                 resultado.append(begin)
                 resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
@@ -559,6 +560,7 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
