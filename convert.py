@@ -184,7 +184,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 			base = palabra[1:] if es_indexada else palabra
 		if es_seccion_n:
             # Si el base contenía # originalmente, ya está escapado arriba.
-		pass
+			pass
 
 		if base == '_':
 			if idx_acorde < len(acordes):
@@ -815,6 +815,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
