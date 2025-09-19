@@ -93,6 +93,12 @@ def escapar_acorde_latex(acorde):
     acorde = acorde.replace('&', '\\&')
     return acorde
 
+def escapar_acorde_latex(acorde):
+    acorde = acorde.replace('#', '\\#')
+    acorde = acorde.replace('_', '\\_')
+    # agrega más escapes si hace falta
+    return acorde
+
 def es_linea_acordes(linea):
 	tokens = linea.split()
 	if not tokens:
@@ -800,6 +806,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
