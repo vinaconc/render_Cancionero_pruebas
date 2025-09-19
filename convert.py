@@ -273,10 +273,10 @@ def convertir_songpro(texto):
                 contenido = contenido.replace('"', '')
 
                 # Ahora, SÍ escapamos el '#' para LaTeX aquí
-                contenido = contenido.replace('#', '\\#')
+                contenido_escapado = contenido.replace('#', '\\#')
 
                 resultado.append(begin)
-                resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
+                resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_escapado}}}")
                 resultado.append(end)
         # Siempre limpiar bloque actual y tipo
         bloque_actual = []
@@ -287,16 +287,17 @@ def convertir_songpro(texto):
         if cancion_abierta:
             resultado.append(r'\endsong')
             if referencia_pendiente:
-                resultado.append(rf'\beginscripture{{[{referencia_pendiente}]}}')
+                referencia_escapada = referencia_pendiente.replace('#', '\\#')
+                resultado.append(rf'\beginscripture{{[{referencia_escapada}]}}')
                 resultado.append(r'\endscripture')
                 referencia_pendiente = None
             cancion_abierta = False
 
     def procesar_bloque_simple(texto, transposicion):
         # Escapamos el '#' para LaTeX aquí también
-        texto = texto.replace('#', '\\#')
+        texto_escapado_hash = texto.replace('#', '\\#')
 
-        lineas = texto.strip().split('\n')
+        lineas = texto_escapado_hash.strip().split('\n')
         resultado = []
         for linea in lineas:
             linea = linea.strip()
@@ -310,7 +311,9 @@ def convertir_songpro(texto):
                 # Escapar sostenidos en acordes para LaTeX
                 acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
                 latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
-                resultado.append(rf'\textnote{{{texto_linea.strip().replace("#", "\\#")}}}') # Escapar '#' en el texto
+                # Corregido: asignar a una variable antes de la f-string
+                texto_linea_escapado = texto_linea.strip().replace("#", "\\#")
+                resultado.append(rf'\textnote{{{texto_linea_escapado}}}') # Escapar '#' en el texto
                 resultado.append(rf'\mbox{{{latex_acordes}}}')
                 continue
             if es_linea_acordes(linea):
@@ -324,7 +327,9 @@ def convertir_songpro(texto):
             else:
                 if linea.strip() in ('V', 'C', 'M', 'N'):
                     continue
-                resultado.append(linea.replace('#', '\\#') + r'\\') # Escapar '#' en texto simple
+                # Corregido: asignar a una variable antes de la f-string
+                linea_escapada = linea.replace('#', '\\#')
+                resultado.append(linea_escapada + r'\\') # Escapar '#' en texto simple
         return '\n'.join(resultado)
 
     i = 0
@@ -354,7 +359,8 @@ def convertir_songpro(texto):
                 resultado.append(r'\end{songs}')
             seccion_abierta = True
             # Escapar para LaTeX
-            resultado.append(r'\songchapter{' + temp_linea[2:].strip().title().replace('#', '\\#') + '}')
+            chapter_title_escaped = temp_linea[2:].strip().title().replace('#', '\\#')
+            resultado.append(r'\songchapter{' + chapter_title_escaped + '}')
             resultado.append(r'\begin{songs}{titleidx}')
             i += 1
             continue
@@ -372,8 +378,9 @@ def convertir_songpro(texto):
             etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
             # Escapar para LaTeX
-            resultado.append(r'\beginsong{' + titulo_cancion_actual.replace('#', '\\#') + '}')
-            resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual.replace("#", "\\#")}}}')
+            title_escaped = titulo_cancion_actual.replace('#', '\\#')
+            resultado.append(r'\beginsong{' + title_escaped + '}')
+            resultado.append(rf'\index[titleidx]{{{title_escaped}}}')
             resultado.append(r'\phantomsection')
             resultado.append(rf'\label{{{etiqueta}}}')
 
@@ -389,7 +396,8 @@ def convertir_songpro(texto):
             etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
             # Escapar para LaTeX
-            resultado.append(r'\beginsong{' + titulo_cancion_actual.replace('#', '\\#') + '}')
+            title_escaped = titulo_cancion_actual.replace('#', '\\#')
+            resultado.append(r'\beginsong{' + title_escaped + '}')
             resultado.append(r'\phantomsection')
             resultado.append(rf'\label{{{etiqueta}}}')
 
@@ -436,24 +444,17 @@ def convertir_songpro(texto):
                 i += 1
                 continue
             else:
-                # Si no es un coro, la trata como una línea normal de texto
-                pass # Dejar que el flujo normal la maneje como texto si es necesario
+                pass
 
-        # Si la línea anterior era un tipo de bloque y esta no es un comando de bloque
         if i > 0 and lineas[i - 1].strip().replace('\\_', '_').replace('\\#', '#') in ('V', 'C', 'M'):
-            cerrar_bloque() # Cerrar el bloque anterior para que esta línea inicie uno nuevo
-            # El tipo de bloque para la siguiente línea se establecerá en la siguiente iteración
-            # o si la línea actual coincide con un comando de bloque.
-            # Por ahora, simplemente cerramos el bloque anterior si no es un comando de bloque.
-            # El tipo_bloque permanece None si no hay un nuevo comando de bloque.
-
+            cerrar_bloque()
 
         # Procesa líneas con acordes separados del texto
         if i + 1 < len(lineas) and es_linea_acordes(temp_linea):
             acordes_originales = temp_linea.strip().split()
             acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
 
-            letras_raw = lineas[i + 1].strip().replace('\\_', '_').replace('\\#', '#') # Desescapar para SongPro
+            letras_raw = lineas[i + 1].strip().replace('\\_', '_').replace('\\#', '#')
 
             if letras_raw.startswith("//") and letras_raw.endswith("//"):
                 letras_raw = letras_raw[2:-2].strip()
@@ -476,7 +477,8 @@ def convertir_songpro(texto):
             if letras_raw == '_':
                 cerrar_bloque()
                 # Escapar para LaTeX
-                resultado.append(f"\\textnote{{{acordes[0].replace('#', '\\#')}}}")
+                acorde_cero_escapado = acordes[0].replace('#', '\\#')
+                resultado.append(f"\\textnote{{{acorde_cero_escapado}}}")
                 i += 2
                 continue
 
@@ -484,7 +486,8 @@ def convertir_songpro(texto):
                 acordes_escapados = [a.replace('#', '\\#') for a in acordes]
                 bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')
                 # Escapar el '#' en las letras si no son parte de un acorde o índice de SongPro
-                bloque_actual.append(letras_raw.replace('#', '\\#'))
+                letras_raw_escapadas = letras_raw.replace('#', '\\#')
+                bloque_actual.append(letras_raw_escapadas)
                 i += 2
                 continue
 
@@ -585,7 +588,10 @@ def generar_indice_tematica():
         ]
         # Escapar el '#' en los nombres de las canciones dentro del índice temático
         enlaces_escapados = [e.replace('#', '\\#') for e in enlaces]
-        resultado.append(rf"  \item \textbf{{{palabra.title().replace('#', '\\#')}}} --- {', '.join(enlaces_escapados)}")
+        
+        # Corregido: asignar a una variable antes de la f-string
+        palabra_titulo_escapada = palabra.title().replace('#', '\\#')
+        resultado.append(rf"  \item \textbf{{{palabra_titulo_escapada}}} --- {', '.join(enlaces_escapados)}")
 
     resultado.append(r"\end{itemize}")
     return '\n'.join(resultado)
