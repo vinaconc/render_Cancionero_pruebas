@@ -179,8 +179,6 @@ def convertir_songpro(texto):
             return (r'\beginchorus', r'\endchorus')
         elif tb == 'melody':
             return (r'\beginverse', r'\endverse')
-        else:
-            return (None, None)
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
         if bloque_actual:
@@ -189,16 +187,12 @@ def convertir_songpro(texto):
                 resultado.append(r'\begin{minipage}[t]{0.4\textwidth}')
                 resultado.append(r'\vspace{-2.5em}')
                 resultado.append(r'\centering')
-                resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion, es_seccion_n=True))
+                resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
                 resultado.append(r'\vspace{-1em}')
                 resultado.append(r'\end{minipage}')
                 resultado.append(r'\endverse')
             else:
-                begin_end = entorno(tipo_bloque)
-                if begin_end == (None, None):
-                    # Manejar caso no reconocido
-                    return
-                begin, end = begin_end
+                begin, end = entorno(tipo_bloque)
                 if tipo_bloque == 'verse':
                     letra_diagrama = 'A'
                 elif tipo_bloque == 'chorus':
@@ -207,8 +201,7 @@ def convertir_songpro(texto):
                     letra_diagrama = 'C'
                 else:
                     letra_diagrama = 'A'
-                # Mejor usar salto de línea para unir, evita errores en LaTeX
-                contenido = '\n'.join(bloque_actual)
+                contenido = ' \\'.join(bloque_actual) + ' \\'
                 contenido = contenido.replace('"', '')
                 resultado.append(begin)
                 resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
@@ -365,11 +358,11 @@ def convertir_songpro(texto):
                 continue
             linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
             if rep_ini and rep_fin:
-                linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+                linea_convertida = r'\\lrep ' + linea_convertida + rf' \\rrep \\rep{{{repeticiones}}}'
             elif rep_ini:
-                linea_convertida = r'\lrep ' + linea_convertida
+                linea_convertida = r'\\lrep ' + linea_convertida
             elif rep_fin:
-                linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+                linea_convertida = linea_convertida + rf' \\rrep \\rep{{{repeticiones}}}'
             bloque_actual.append(linea_convertida)
             i += 3
             continue
@@ -560,10 +553,3 @@ document.getElementById("btnInsertUnderscore").addEventListener("click", functio
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
-
-
-
-
-
-
