@@ -644,7 +644,9 @@ def compilar_tex_seguro(tex_path):
         result = subprocess.run(
             ["pdflatex", "-interaction=nonstopmode", tex_file],
             capture_output=True,
-            text=True,
+            text=True, # text=True usa encoding='locale' por defecto
+                       # Para asegurar UTF-8 y manejar errores:
+            encoding='utf-8', errors='ignore', # AÑADIR ESTO
             cwd=tex_dir
         )
         logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
@@ -655,7 +657,7 @@ def compilar_tex_seguro(tex_path):
         posibles_indices = [
             (f"{base}.idx", None),
             (f"{base}.tema.idx", f"{base}.tema.ind"),
-            (f"{base}.titleidx", f"{base}.titleidx.ind"), # Corregir este, imakeidx usa .idx por defecto
+            (f"{base}.titleidx", f"{base}.titleidx.ind"),
         ]
         for entrada, salida in posibles_indices:
             entrada_path = os.path.join(tex_dir, entrada)
@@ -663,10 +665,12 @@ def compilar_tex_seguro(tex_path):
                 cmd = ["makeindex", entrada]
                 if salida is not None:
                     cmd = ["makeindex", "-o", salida, entrada]
-                else: # Si no hay salida definida, makeindex por defecto genera .ind
-                    cmd = ["makeindex", entrada] # makeindex -o base.ind base.idx
+                else:
+                    cmd = ["makeindex", entrada]
                     
-                mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
+                mi = subprocess.run(cmd, capture_output=True, text=True,
+                                   encoding='utf-8', errors='ignore', # AÑADIR ESTO
+                                   cwd=tex_dir)
                 logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
         # Segunda y tercera compilación para manejar índices y referencias cruzadas
@@ -675,6 +679,7 @@ def compilar_tex_seguro(tex_path):
                 ["pdflatex", "-interaction=nonstopmode", tex_file],
                 capture_output=True,
                 text=True,
+                encoding='utf-8', errors='ignore', # AÑADIR ESTO
                 cwd=tex_dir
             )
             logs += f"\n--- COMPILACIÓN {i+2} ---\n" + result_loop.stdout + result_loop.stderr
@@ -826,4 +831,5 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
