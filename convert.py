@@ -126,6 +126,8 @@ def convertir_a_latex(acorde):
 	# Convertir notación de bemoles en inglés a notación estándar
 	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
 	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
+	acorde = acorde.replace('F#', 'FA#').replace('f#', 'fa#')
+	acorde = acorde.replace('C#', 'DO#').replace('c#', 'do#')
 
 	if any(acorde.lower().startswith(n.lower()) for n in ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']):
 		return acorde
@@ -789,6 +791,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
