@@ -199,10 +199,12 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
                 indice_tematica_global[palabra_para_indice].add(titulo_indexado)
 
                 # Escapar el '#' antes de pasarlo a LaTeX en el texto del índice temático
+                # Solo escapamos '#' en el texto literal, no dentro de los comandos \[...]
                 escaped_latex = latex.replace('#', '\\#')
                 resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{escaped_latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
             else:
                 # Escapar '#' si la palabra no es indexada pero contiene el símbolo
+                # Idem, solo en texto literal
                 escaped_latex = latex.replace('#', '\\#')
                 resultado += escaped_latex + ' '
         else:
@@ -256,37 +258,75 @@ def convertir_songpro(texto):
         if bloque_actual:
             if tipo_bloque == 'nodiagram':
                 resultado.append(r'\beginverse')
-                resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion))
+                # Las líneas de nodiagram se procesan individualmente, no como un diagrama
+                for linea_contenido in bloque_actual:
+                    resultado.append(procesar_bloque_simple(linea_contenido, transposicion))
                 resultado.append(r'\endverse')
-            elif tipo_bloque is not None: # Solo intentar obtener entorno si tipo_bloque es válido
+            elif tipo_bloque is not None:
                 begin, end = entorno(tipo_bloque)
-                if begin and end: # Asegúrate de que entorno no devolvió None
-                    # Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
+                if begin and end:
                     if tipo_bloque == 'verse':
                         letra_diagrama = 'A'
                     elif tipo_bloque == 'chorus':
                         letra_diagrama = 'B'
                     elif tipo_bloque == 'melody':
                         letra_diagrama = 'C'
-                    else:
+                    else: # Fallback, aunque no debería ocurrir con las comprobaciones anteriores
                         letra_diagrama = 'A'
+                    
+                    # Unir las líneas del bloque.
+                    # Ya hemos escapado los '#' en los acordes y el texto en las funciones de procesamiento.
+                    # No debemos re-escapar aquí.
+                    contenido_unido = ' '.join(bloque_actual) 
+                    
                     # Eliminar barras invertidas duplicadas y comillas
-                    contenido = ' \\\\'.join(bloque_actual).replace('\\\\ \\\\', ' \\\\')
-                    contenido = contenido.replace('"', '')
+                    # La lógica de reemplazar '\\\\ \\\\' por ' \\\\' está pensada para `diagram` que espera una secuencia
+                    # de acordes y texto. Si `bloque_actual` ya tiene `\\` al final de cada línea,
+                    # al unirlos con ' \\\\' se crean `\\\\`.
+                    # Lo más simple es que cada línea ya venga preparada para diagram o simple.
+                    
+                    # Si el contenido ya está escapado y formateado, solo debemos unir.
+                    # El `diagram` de songs.sty se encarga de los saltos de línea internos con `\\`.
+                    # Si ya estamos agregando `\\` al final de cada línea en `bloque_actual`,
+                    # entonces un simple `join` basta.
+                    # Pero si `bloque_actual` contiene líneas de texto simple, debemos agregar el `\\`.
+                    # La estrategia actual en `procesar_bloque_simple` ya añade `\\` a las líneas de texto.
 
-                    # Ahora, SÍ escapamos el '#' para LaTeX aquí
-                    contenido_escapado = contenido.replace('#', '\\#')
+                    # Para evitar el doble escapado y problemas en el diagrama,
+                    # asegúrate de que cada elemento en bloque_actual está formateado para LaTeX
+                    # y no necesita más escapado aquí.
+                    # La eliminación de comillas no debería ser necesaria si el escapado es correcto.
 
+                    # Se asume que bloque_actual contiene elementos ya preparados para LaTeX.
+                    # Si hay saltos de línea adicionales, se espera que estén incluidos en los elementos.
+                    # Si no, el `diagram` los interpretará como espacio.
+
+                    # La corrección más segura es asegurar que procesar_bloque_simple
+                    # ya emita el string final para cada línea del bloque.
+                    # Y para los bloques 'diagram' debemos pasarlo como un solo string largo.
+                    # Por el `diagram` command, las líneas deben estar unidas con ` \\ ` y el '#' escapado.
+                    # PERO: si ya hemos escapado `#` a `\\#` en `procesar_linea_con_acordes_y_indices` y `procesar_bloque_simple`,
+                    # entonces hacer `replace('#', '\\#')` aquí sería un DOBLE ESCAPADO.
+                    
+                    # Por tanto, aquí simplemente unimos. El escapado de '#' debe ocurrir ANTES
+                    # de que el texto llegue a `bloque_actual`.
+
+                    contenido_final_para_diagram = " \\\\ ".join(bloque_actual).replace("  \\\\  ", " \\\\ ")
+                    
+                    # Finalmente, elimina cualquier doble barra invertida extra si se coló
+                    # (ej. de "texto \\ \\ acordes" a "texto \\ acordes")
+                    contenido_final_para_diagram = re.sub(r'\\\\(\s*\\\\)*', r'\\\\', contenido_final_para_diagram)
+                    
                     resultado.append(begin)
-                    resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_escapado}}}")
+                    resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_final_para_diagram}}}")
                     resultado.append(end)
-        # Siempre limpiar bloque actual y tipo
         bloque_actual = []
         tipo_bloque = None
 
     def cerrar_cancion():
         nonlocal cancion_abierta, referencia_pendiente
         if cancion_abierta:
+            cerrar_bloque() # Asegúrate de cerrar cualquier bloque pendiente antes de la canción
             resultado.append(r'\endsong')
             if referencia_pendiente:
                 referencia_escapada = referencia_pendiente.replace('#', '\\#')
@@ -295,44 +335,47 @@ def convertir_songpro(texto):
                 referencia_pendiente = None
             cancion_abierta = False
 
-    def procesar_bloque_simple(texto, transposicion):
-        # Escapamos el '#' para LaTeX aquí también
-        texto_escapado_hash = texto.replace('#', '\\#')
+    def procesar_bloque_simple_linea(linea_texto, transposicion):
+        # Esta función procesará una sola línea y devolverá el string LaTeX con el escapado correcto
+        linea = linea_texto.strip()
+        if not linea:
+            return ""
 
-        lineas = texto_escapado_hash.strip().split('\n')
-        resultado = []
-        for linea in lineas:
-            linea = linea.strip()
-            if not linea:
-                continue
-            match = re.match(r'^([^:]+):\s*(.*)$', linea)
-            if match:
-                texto_linea, acordes_linea = match.groups()
-                acordes = acordes_linea.split()
-                acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                # Escapar sostenidos en acordes para LaTeX
-                acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
-                latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
-                # Corregido: asignar a una variable antes de la f-string
-                texto_linea_escapado = texto_linea.strip().replace("#", "\\#")
-                resultado.append(rf'\textnote{{{texto_linea_escapado}}}') # Escapar '#' en el texto
-                resultado.append(rf'\mbox{{{latex_acordes}}}')
-                continue
-            if es_linea_acordes(linea):
-                acordes = linea.split()
-                acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                # Escapar sostenidos en acordes para LaTeX
-                acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
-                latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
-                resultado.append(rf'\mbox{{{latex_acordes}}}')
-                continue
+        # Primero, desescapar _ y # si fueron escapados para SongPro temporalmente
+        linea = linea.replace('\\_', '_').replace('\\#', '#')
+
+        match = re.match(r'^([^:]+):\s*(.*)$', linea)
+        if match:
+            texto_linea, acordes_linea = match.groups()
+            acordes = acordes_linea.split()
+            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+            # Escapar sostenidos en acordes para LaTeX
+            acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
+            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
+            
+            texto_linea_escapado = texto_linea.strip().replace("#", "\\#") # Escapar '#' en el texto
+            
+            # \textnote y \mbox ya gestionan el salto de línea, no agregar '\\' aquí
+            return rf'\textnote{{{texto_linea_escapado}}}\mbox{{{latex_acordes}}}'
+        
+        if es_linea_acordes(linea):
+            acordes = linea.split()
+            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+            acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
+            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
+            # \mbox ya gestiona el salto de línea, no agregar '\\' aquí
+            return rf'\mbox{{{latex_acordes}}}'
+        else:
+            if linea.strip() in ('V', 'C', 'M', 'N'): # Estos son comandos, no texto para renderizar
+                return ""
+            
+            # Procesar si hay acordes embebidos o índices
+            if '_' in linea or '#' in linea:
+                linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+                return linea_procesada_para_lyrics + r'\\' # Añadir '\\' si es línea de letra simple
             else:
-                if linea.strip() in ('V', 'C', 'M', 'N'):
-                    continue
-                # Corregido: asignar a una variable antes de la f-string
                 linea_escapada = linea.replace('#', '\\#')
-                resultado.append(linea_escapada + r'\\') # Escapar '#' en texto simple
-        return '\n'.join(resultado)
+                return linea_escapada + r'\\' # Añadir '\\' al final de la línea para LaTeX
 
     i = 0
     while i < len(lineas):
@@ -344,7 +387,7 @@ def convertir_songpro(texto):
         temp_linea = linea.replace('\\_', '_').replace('\\#', '#')
 
         if temp_linea.lower().startswith("ref="):
-            cerrar_bloque() # Cerrar el bloque actual antes de la referencia
+            cerrar_bloque()
             contenido = temp_linea[4:].strip()
             if contenido.startswith('(') and contenido.endswith(')'):
                 referencia_pendiente = contenido[1:-1]
@@ -352,7 +395,7 @@ def convertir_songpro(texto):
             continue
 
         if not temp_linea:
-            cerrar_bloque() # Cerrar el bloque en una línea vacía, si hay alguno.
+            cerrar_bloque()
             i += 1
             continue
 
@@ -362,7 +405,6 @@ def convertir_songpro(texto):
             if seccion_abierta:
                 resultado.append(r'\end{songs}')
             seccion_abierta = True
-            # Escapar para LaTeX
             chapter_title_escaped = temp_linea[2:].strip().title().replace('#', '\\#')
             resultado.append(r'\songchapter{' + chapter_title_escaped + '}')
             resultado.append(r'\begin{songs}{titleidx}')
@@ -381,7 +423,6 @@ def convertir_songpro(texto):
 
             etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
-            # Escapar para LaTeX
             title_escaped = titulo_cancion_actual.replace('#', '\\#')
             resultado.append(r'\beginsong{' + title_escaped + '}')
             resultado.append(rf'\index[titleidx]{{{title_escaped}}}')
@@ -392,14 +433,13 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        if temp_linea.isupper() and len(temp_linea) > 1 and not es_linea_acordes(temp_linea) and temp_linea not in ('V', 'C', 'M', 'O', 'S'):
+        if temp_linea.isupper() and len(temp_linea) > 1 and not es_linea_acordes(temp_linea) and temp_linea not in ('V', 'C', 'M', 'O', 'S', 'N'):
             cerrar_bloque()
             cerrar_cancion()
             titulo_cancion_actual = temp_linea.title()
 
             etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
 
-            # Escapar para LaTeX
             title_escaped = titulo_cancion_actual.replace('#', '\\#')
             resultado.append(r'\beginsong{' + title_escaped + '}')
             resultado.append(r'\phantomsection')
@@ -419,9 +459,12 @@ def convertir_songpro(texto):
             continue
 
         if not cancion_abierta:
+            # Si no hay canción abierta y encontramos contenido, crear una canción sin título
             resultado.append(r'\beginsong{}')
             cancion_abierta = True
+            titulo_cancion_actual = "Sin título" # para que procesar_linea_con_acordes_y_indices pueda usarlo
 
+        # Comandos de bloques
         if temp_linea == 'V':
             cerrar_bloque()
             tipo_bloque = 'verse'
@@ -441,23 +484,12 @@ def convertir_songpro(texto):
             continue
 
         if temp_linea == 'C':
-            # Mira la siguiente línea para decidir si es un coro real
-            if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip().replace('\\_', '_').replace('\\#', '#')):
-                cerrar_bloque()
-                tipo_bloque = 'chorus'
-                i += 1
-                continue
-            else:
-                # Si no es un coro, la trata como una línea normal de texto
-                pass
+            cerrar_bloque() # Siempre cierra el bloque anterior al iniciar uno nuevo
+            tipo_bloque = 'chorus'
+            i += 1
+            continue
 
-        if i > 0 and lineas[i - 1].strip().replace('\\_', '_').replace('\\#', '#') in ('V', 'C', 'M', 'N'):
-             # No cerramos bloque aquí, porque la línea actual podría ser parte del mismo.
-             # La lógica de cerrar_bloque se encarga al encontrar un nuevo comando de bloque o al final del archivo.
-             pass
-
-        # Procesa líneas con acordes separados del texto
-        # Esta es la lógica principal para las letras y acordes
+        # Procesa líneas con acordes separados del texto (línea de acordes + línea de letra)
         if i + 1 < len(lineas) and es_linea_acordes(temp_linea):
             acordes_originales = temp_linea.strip().split()
             acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
@@ -482,31 +514,37 @@ def convertir_songpro(texto):
                 rep_fin = True
                 letras_raw = letras_raw[:-2].rstrip()
 
+            # Caso especial para líneas de acorde sin letra explícita (solo '_')
             if letras_raw == '_':
-                cerrar_bloque()
-                # Escapar para LaTeX
+                cerrar_bloque() # Esto puede ser un problema si '_ ' está al final de un verso.
+                                # Quizás este caso debería ser manejado por procesar_bloque_simple
                 acorde_cero_escapado = acordes[0].replace('#', '\\#')
                 resultado.append(f"\\textnote{{{acorde_cero_escapado}}}")
                 i += 2
                 continue
+            
+            # Formatear línea de acordes
+            acordes_escapados = [a.replace('#', '\\#') for a in acordes]
+            linea_acordes_latex = '\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}'
 
-            if not ('_' in letras_raw or '#' in letras_raw):
-                acordes_escapados = [a.replace('#', '\\#') for a in acordes]
-                bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')
-                # Escapar el '#' en las letras si no son parte de un acorde o índice de SongPro
-                letras_raw_escapadas = letras_raw.replace('#', '\\#')
-                bloque_actual.append(letras_raw_escapadas)
-                i += 2
-                continue
+            # Formatear línea de letra
+            if '_' in letras_raw or '#' in letras_raw:
+                linea_letras_latex = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+            else:
+                linea_letras_latex = letras_raw.replace('#', '\\#') # Solo escapa # en texto literal
 
-            linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+            # Añadir repeticiones
             if rep_ini and rep_fin:
-                linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+                linea_letras_latex = r'\lrep ' + linea_letras_latex + rf' \rrep \rep{{{repeticiones}}}'
             elif rep_ini:
-                linea_convertida = r'\lrep ' + linea_convertida
+                linea_letras_latex = r'\lrep ' + linea_letras_latex
             elif rep_fin:
-                linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
-            bloque_actual.append(linea_convertida)
+                linea_letras_latex = linea_letras_latex + rf' \rrep \rep{{{repeticiones}}}'
+
+            # Agrega ambas líneas al bloque actual
+            bloque_actual.append(linea_acordes_latex)
+            bloque_actual.append(linea_letras_latex) # La función ya añade el \\ si es necesario.
+            
             i += 2
             continue
 
@@ -547,10 +585,29 @@ def convertir_songpro(texto):
             bloque_actual.append(linea_procesada)
             i += 1
             continue
+        
+        # Si llegamos aquí y hay una canción abierta, pero la línea no es un comando de bloque,
+        # un par acorde/letra, ni dentro de un bloque, entonces es texto "suelto" de la canción.
+        # Debe ser añadido al bloque actual (posiblemente un 'verse' implícito si no hay otro).
+        # Esto podría ser lo que faltaba para líneas que no se capturaban.
+        if cancion_abierta and temp_linea:
+            # Asegurar que si hay acordes embebidos o índices en este texto suelto, se procesen.
+            if '_' in temp_linea or '#' in temp_linea:
+                linea_procesada = procesar_linea_con_acordes_y_indices(temp_linea, [], titulo_cancion_actual)
+            else:
+                linea_procesada = temp_linea.replace('#', '\\#')
+            
+            # Si no hay bloque abierto, se asume un verso
+            if tipo_bloque is None:
+                tipo_bloque = 'verse' # Iniciar un verso implícito
+            
+            # Aseguramos que se añade un salto de línea LaTeX
+            bloque_actual.append(linea_procesada + r'\\')
+            i += 1
+            continue
 
-        # Si llegamos aquí, la línea es una línea de texto normal (fuera de bloques específicos de SongPro)
-        # o un comando que no fue capturado.
-        # Por ahora, simplemente avanza
+        # Si llegamos aquí y la línea no fue procesada por ninguna de las condiciones anteriores,
+        # simplemente avanza.
         i += 1
 
     cerrar_bloque()
@@ -591,15 +648,12 @@ def generar_indice_tematica():
     for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
         canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
         enlaces = [
-            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c}}}"
+            rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c.replace('#', '\\#')}}}" # Escapar # en el texto del enlace
             for c in canciones
         ]
-        # Escapar el '#' en los nombres de las canciones dentro del índice temático
-        enlaces_escapados = [e.replace('#', '\\#') for e in enlaces]
         
-        # Corregido: asignar a una variable antes de la f-string
         palabra_titulo_escapada = palabra.title().replace('#', '\\#')
-        resultado.append(rf"  \item \textbf{{{palabra_titulo_escapada}}} --- {', '.join(enlaces_escapados)}")
+        resultado.append(rf"  \item \textbf{{{palabra_titulo_escapada}}} --- {', '.join(enlaces)}")
 
     resultado.append(r"\end{itemize}")
     return '\n'.join(resultado)
@@ -610,6 +664,7 @@ def compilar_tex_seguro(tex_path):
 
     try:
         logs = ""
+        # Primera compilación
         result = subprocess.run(
             ["pdflatex", "-interaction=nonstopmode", tex_file],
             capture_output=True,
@@ -624,7 +679,7 @@ def compilar_tex_seguro(tex_path):
         posibles_indices = [
             (f"{base}.idx", None),
             (f"{base}.tema.idx", f"{base}.tema.ind"),
-            (f"{base}.cbtitle", f"{base}.cbtitle.ind"),
+            (f"{base}.titleidx", f"{base}.titleidx.ind"), # Corregir este, imakeidx usa .idx por defecto
         ]
         for entrada, salida in posibles_indices:
             entrada_path = os.path.join(tex_dir, entrada)
@@ -632,18 +687,23 @@ def compilar_tex_seguro(tex_path):
                 cmd = ["makeindex", entrada]
                 if salida is not None:
                     cmd = ["makeindex", "-o", salida, entrada]
+                else: # Si no hay salida definida, makeindex por defecto genera .ind
+                    cmd = ["makeindex", entrada] # makeindex -o base.ind base.idx
+                    
                 mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
                 logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
-        result2 = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", tex_file],
-            capture_output=True,
-            text=True,
-            cwd=tex_dir
-        )
-        logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
-        if result2.returncode != 0:
-            raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
+        # Segunda y tercera compilación para manejar índices y referencias cruzadas
+        for i in range(2): 
+            result_loop = subprocess.run(
+                ["pdflatex", "-interaction=nonstopmode", tex_file],
+                capture_output=True,
+                text=True,
+                cwd=tex_dir
+            )
+            logs += f"\n--- COMPILACIÓN {i+2} ---\n" + result_loop.stdout + result_loop.stderr
+            if result_loop.returncode != 0:
+                raise RuntimeError(f"Error compilando LaTeX en la iteración {i+2}.\nLog completo:\n{logs}")
 
         pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
         if not os.path.exists(pdf_file):
