@@ -154,76 +154,126 @@ def convertir_a_latex(acorde):
 
     return acorde
 
-def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#'):
-    resultado = ''
-    idx_acorde = 0
-    palabras = linea.strip().split()
+def procesar_linea_con_acordes_y_indices(linea, acordes_externos, titulo_cancion, simbolo='#'):
+    # 'acordes_externos' es un parámetro que ahora puede estar vacío,
+    # ya que los acordes embebidos se tratan de forma independiente
+    # o como parte de los 'acordes_externos' si se usan en un par texto/acorde.
+    # Aquí nos enfocaremos en acordes *embebiidos* que se identifican por '_'
+    # y palabras indexadas por '#'.
 
-    for palabra in palabras:
-        es_indexada = palabra.startswith(simbolo)
+    resultado_partes = []
+    
+    # Desescapar _ y # para procesar la sintaxis de SongPro
+    # Pero solo los que fueron escapados inicialmente como \\_ y \\#
+    linea_temp = linea.replace('\\_', '_').replace('\\#', '#')
+    
+    # Este regex intenta encontrar tokens que son palabras, o que contienen _ o #
+    # Ejemplo: "El#Amor_Do es #Un_Mi regalo" -> ["El#Amor_Do", "es", "#Un_Mi", "regalo"]
+    tokens = re.findall(r'(\S+)', linea_temp)
+
+    for token in tokens:
+        es_indexada = token.startswith(simbolo)
         index_real = None
-
-        if es_indexada and '=' in palabra:
-            base, index_real = palabra[1:].split('=', 1)
-        else:
-            base = palabra[1:] if es_indexada else palabra
-
-        if base == '_':
-            if idx_acorde < len(acordes):
-                # Escapar sostenidos en acordes para LaTeX
-                acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
-                resultado += f"\\raisebox{{1.7ex}}{{\\[{acorde_escapado}]}} "
-                idx_acorde += 1
+        base_token = token
+        
+        if es_indexada:
+            if '=' in token:
+                base_token, index_real = token[1:].split('=', 1)
             else:
-                resultado += '_ '
-            continue
-
-        if '_' in base:
-            # Aquí base tiene acordes embebidos
-            partes = base.split('_')
-            latex = ''
-            for i, parte in enumerate(partes):
-                if i > 0 and idx_acorde < len(acordes):
-                    # Escapar sostenidos en acordes para LaTeX
-                    acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
-                    latex += f"\\[{acorde_escapado}]"
-                    idx_acorde += 1
-                latex += parte
-
-            palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes))
-
+                base_token = token[1:]
+        
+        # Procesar acordes embebidos (con _ dentro del token)
+        # Esto maneja "palabra_ACORDE" o "_ACORDE"
+        
+        # Búsqueda más flexible para el patrón `letra_ACORDE`
+        # `([^ _]*)` captura la letra (0 o más caracteres que no sean espacio o guion bajo)
+        # `_` el separador
+        # `([A-Ga-g][#b]?[a-zA-Z0-9#]*)` captura el acorde (Do#, Sim, etc.)
+        match_embebido = re.match(r'^(.*?)\_([A-Ga-g][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?.*)$', base_token, re.IGNORECASE)
+        
+        if match_embebido:
+            letra_antes, acorde_embebido = match_embebido.groups()[0], match_embebido.groups()[1]
+            
+            acorde_transpuesto = transportar_acorde(acorde_embebido, 0)
+            acorde_escapado = acorde_transpuesto.replace('#', '\\#')
+            letra_escapada = letra_antes.replace('#', '\\#')
+            
+            # Si tiene un índice temático, lo agregamos a la letra escapada
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else letra_antes)
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+                titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
+                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
+                # Aquí la letra escapada incluye el índice.
+                letra_escapada = rf"\textcolor{{blue!50!black}}{{\textbf{{{letra_escapada}}}}}\\protect\\index[tema]{{{palabra_para_indice}}}"
+            
+            if letra_escapada:
+                resultado_partes.append(rf"\ch{{{acorde_escapado}}}{{{letra_escapada}}}")
+            else:
+                resultado_partes.append(rf"\chord{{{acorde_escapado}}}")
+        elif base_token == '_': # Caso especial: solo un guion bajo
+            resultado_partes.append('\\_') # Escapar como literal para LaTeX.
+        else: # No contiene guion bajo, es una palabra normal o indexada
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else base_token)
             if es_indexada:
                 if palabra_para_indice not in indice_tematica_global:
                     indice_tematica_global[palabra_para_indice] = set()
                 titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
                 indice_tematica_global[palabra_para_indice].add(titulo_indexado)
 
-                # Escapar el '#' antes de pasarlo a LaTeX en el texto del índice temático
-                # Solo escapamos '#' en el texto literal, no dentro de los comandos \[...]
-                escaped_latex = latex.replace('#', '\\#')
-                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{escaped_latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
+                escaped_base_token = base_token.replace('#', '\\#')
+                resultado_partes.append(rf"\textcolor{{blue!50!black}}{{\textbf{{{escaped_base_token}}}}}\\protect\\index[tema]{{{palabra_para_indice}}}")
             else:
-                # Escapar '#' si la palabra no es indexada pero contiene el símbolo
-                # Idem, solo en texto literal
-                escaped_latex = latex.replace('#', '\\#')
-                resultado += escaped_latex + ' '
+                escaped_base_token = base_token.replace('#', '\\#')
+                resultado_partes.append(escaped_base_token)
+        
+    return ' '.join(resultado_partes).strip()
+
+
+def procesar_bloque_simple_linea(linea_texto, transposicion):
+    linea = linea_texto.strip()
+    if not linea:
+        return ""
+
+    # Desescapar _ y # si fueron escapados para SongPro temporalmente
+    linea = linea.replace('\\_', '_').replace('\\#', '#')
+
+    # Detectar pares "texto: acordes"
+    match_texto_acordes = re.match(r'^([^:]+):\s*(.*)$', linea)
+    if match_texto_acordes:
+        texto_linea, acordes_linea_raw = match_texto_acordes.groups()
+        acordes_tokens = acordes_linea_raw.split()
+        acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
+        
+        # Unir los acordes en un solo string para el \mbox
+        acordes_para_mbox = ' '.join(rf'\chord{{{a.replace("#", "\\#")}}}' for a in acordes_transpuestos)
+        
+        texto_linea_escapado = texto_linea.strip().replace("#", "\\#")
+        
+        return rf'\textnote{{{texto_linea_escapado}}}\mbox{{{acordes_para_mbox}}}'
+    
+    # Detectar líneas de solo acordes
+    if es_linea_acordes(linea):
+        acordes_tokens = linea.split()
+        acordes_transpuestos = [transportar_acorde(a, transposicion) for a in acordes_tokens]
+        acordes_para_mbox = ' '.join(rf'\chord{{{a.replace("#", "\\#")}}}' for a in acordes_transpuestos)
+        return rf'\mbox{{{acordes_para_mbox}}}'
+    else:
+        # Si es una línea de texto simple (no un comando V, C, M, N)
+        if linea.strip() in ('V', 'C', 'M', 'N'):
+            return "" # Estos son comandos, no deben renderizarse como texto
+
+        # Si contiene guiones bajos o almohadillas (para índices o acordes embebidos)
+        if '_' in linea or '#' in linea:
+            # Reutiliza procesar_linea_con_acordes_y_indices
+            linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+            # Envuelve en \textnote ya que es texto de letra
+            return rf'\textnote{{{linea_procesada_para_lyrics}}}' # No añade \\ aquí, lo gestiona el llamador
         else:
-            # Palabra sin acorde embebido
-            palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
-            if es_indexada:
-                if palabra_para_indice not in indice_tematica_global:
-                    indice_tematica_global[palabra_para_indice] = set()
-                indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
-
-                # Escapar el '#' antes de pasarlo a LaTeX
-                escaped_base = base.replace('#', '\\#')
-                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{escaped_base}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
-            else:
-                # Escapar '#' si la palabra no es indexada pero contiene el símbolo
-                escaped_base = base.replace('#', '\\#')
-                resultado += escaped_base + ' '
-
-    return resultado.strip()
+            # Línea de texto normal, solo escapa #
+            linea_escapada = linea.replace('#', '\\#')
+            return rf'\textnote{{{linea_escapada}}}' # No añade \\ aquí, lo gestiona el llamador
 
 
 def convertir_songpro(texto):
@@ -257,28 +307,27 @@ def convertir_songpro(texto):
         nonlocal bloque_actual, tipo_bloque
         if bloque_actual:
             if tipo_bloque == 'nodiagram':
-                resultado.append(r'\beginverse')
-                # Las líneas de nodiagram se procesan individualmente, no como un diagrama
+                resultado.append(r'\beginverse') # Nodiagrams son tratados como versos simples
                 for linea_contenido in bloque_actual:
-                    resultado.append(procesar_bloque_simple_linea(linea_contenido, transposicion))
+                    # Las líneas de nodiagram se procesan individualmente, se asume que procesar_bloque_simple_linea
+                    # ya devuelve la línea con \textnote o \mbox si es necesario, sin \\ final
+                    # Aquí añadimos el \\ para el salto de línea.
+                    resultado.append(linea_contenido + r'\\')
                 resultado.append(r'\endverse')
             elif tipo_bloque is not None:
                 begin, end = entorno(tipo_bloque)
                 if begin and end:
-                    if tipo_bloque == 'verse':
-                        letra_diagrama = 'A'
-                    elif tipo_bloque == 'chorus':
-                        letra_diagrama = 'B'
-                    elif tipo_bloque == 'melody':
-                        letra_diagrama = 'C'
-                    else: # Fallback, aunque no debería ocurrir con las comprobaciones anteriores
-                        letra_diagrama = 'A'
-                    
-                    contenido_final_para_diagram = " \\\\ ".join(bloque_actual)
-                    contenido_final_para_diagram = re.sub(r'\\\\(\s*\\\\)*', r'\\\\', contenido_final_para_diagram)
-                    
+                    # Usamos el entorno adecuado para cada tipo de bloque
                     resultado.append(begin)
-                    resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido_final_para_diagram}}}")
+                    # Cada línea ya debe venir con su formato LaTeX (textnote, mbox, ch, chord)
+                    # y los \\ para los saltos de línea internos se añaden aquí,
+                    # excepto si la línea ya es un mbox o textnote completo.
+                    for l in bloque_actual:
+                        # Si la línea ya es un \mbox o \textnote completo, no añadir \\
+                        if l.startswith(r'\mbox{') or l.startswith(r'\textnote{'):
+                            resultado.append(l)
+                        else:
+                            resultado.append(l + r'\\')
                     resultado.append(end)
         bloque_actual = []
         tipo_bloque = None
@@ -294,48 +343,6 @@ def convertir_songpro(texto):
                 resultado.append(r'\endscripture')
                 referencia_pendiente = None
             cancion_abierta = False
-
-    def procesar_bloque_simple_linea(linea_texto, transposicion):
-        # Esta función procesará una sola línea y devolverá el string LaTeX con el escapado correcto
-        linea = linea_texto.strip()
-        if not linea:
-            return ""
-
-        # Primero, desescapar _ y # si fueron escapados para SongPro temporalmente
-        linea = linea.replace('\\_', '_').replace('\\#', '#')
-
-        match = re.match(r'^([^:]+):\s*(.*)$', linea)
-        if match:
-            texto_linea, acordes_linea = match.groups()
-            acordes = acordes_linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            # Escapar sostenidos en acordes para LaTeX
-            acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
-            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
-            
-            texto_linea_escapado = texto_linea.strip().replace("#", "\\#") # Escapar '#' en el texto
-            
-            # \textnote y \mbox ya gestionan el salto de línea, no agregar '\\' aquí
-            return rf'\textnote{{{texto_linea_escapado}}}\mbox{{{latex_acordes}}}'
-        
-        if es_linea_acordes(linea):
-            acordes = linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
-            latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
-            # \mbox ya gestiona el salto de línea, no agregar '\\' aquí
-            return rf'\mbox{{{latex_acordes}}}'
-        else:
-            if linea.strip() in ('V', 'C', 'M', 'N'): # Estos son comandos, no texto para renderizar
-                return ""
-            
-            # Procesar si hay acordes embebidos o índices
-            if '_' in linea or '#' in linea:
-                linea_procesada_para_lyrics = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
-                return linea_procesada_para_lyrics + r'\\' # Añadir '\\' si es línea de letra simple
-            else:
-                linea_escapada = linea.replace('#', '\\#')
-                return linea_escapada + r'\\' # Añadir '\\' al final de la línea para LaTeX
 
     i = 0
     while i < len(lineas):
@@ -476,34 +483,43 @@ def convertir_songpro(texto):
 
             # Caso especial para líneas de acorde sin letra explícita (solo '_')
             if letras_raw == '_':
-                cerrar_bloque() # Esto puede ser un problema si '_ ' está al final de un verso.
-                                # Quizás este caso debería ser manejado por procesar_bloque_simple
-                acorde_cero_escapado = acordes[0].replace('#', '\\#')
-                resultado.append(f"\\textnote{{{acorde_cero_escapado}}}")
+                cerrar_bloque() 
+                acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
+                # En este caso, la línea de acordes es la "letra"
+                linea_acordes_latex = ' '.join([f'\\chord{{{a}}}' for a in acordes_escapados_para_latex])
+                resultado.append(rf'\textnote{{{linea_acordes_latex}}}' + r'\\')
                 i += 2
                 continue
             
             # Formatear línea de acordes
-            acordes_escapados = [a.replace('#', '\\#') for a in acordes]
-            linea_acordes_latex = '\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}'
+            acordes_escapados_para_latex = [a.replace('#', '\\#') for a in acordes]
+            linea_acordes_latex = '\\mbox{' + ' '.join([f'\\chord{{{a}}}' for a in acordes_escapados_para_latex]) + '}'
 
             # Formatear línea de letra
             if '_' in letras_raw or '#' in letras_raw:
-                linea_letras_latex = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+                # La función procesar_linea_con_acordes_y_indices ya usa \ch o \chord y escapa el #
+                linea_letras_latex = procesar_linea_con_acordes_y_indices(letras_raw, [], titulo_cancion_actual)
             else:
                 linea_letras_latex = letras_raw.replace('#', '\\#') # Solo escapa # en texto literal
 
+            # Asegurar que la línea de letra se ponga en un \textnote si no tiene ya un comando de acorde.
+            # Los comandos \ch{} y \chord{} deben estar dentro de \textnote para una línea de letra.
+            linea_letras_final = linea_letras_latex
+            if not (linea_letras_latex.startswith(r'\ch{') or linea_letras_latex.startswith(r'\chord{')):
+                 # Si no es solo un acorde, envuélvelo en textnote
+                 linea_letras_final = rf'\textnote{{{linea_letras_latex}}}'
+
             # Añadir repeticiones
             if rep_ini and rep_fin:
-                linea_letras_latex = r'\lrep ' + linea_letras_latex + rf' \rrep \rep{{{repeticiones}}}'
+                linea_letras_final = r'\lrep ' + linea_letras_final + rf' \rrep \rep{{{repeticiones}}}'
             elif rep_ini:
-                linea_letras_latex = r'\lrep ' + linea_letras_latex
+                linea_letras_final = r'\lrep ' + linea_letras_final
             elif rep_fin:
-                linea_letras_latex = linea_letras_latex + rf' \rrep \rep{{{repeticiones}}}'
+                linea_letras_final = linea_letras_final + rf' \rrep \rep{{{repeticiones}}}'
 
             # Agrega ambas líneas al bloque actual
             bloque_actual.append(linea_acordes_latex)
-            bloque_actual.append(linea_letras_latex) # La función ya añade el \\ si es necesario.
+            bloque_actual.append(linea_letras_final)
             
             i += 2
             continue
@@ -530,10 +546,8 @@ def convertir_songpro(texto):
                 rep_fin = True
                 temp_linea = temp_linea[:-2].rstrip()
 
-            if '_' in temp_linea or '#' in temp_linea: # Si la línea contiene sintaxis de acordes/índices
-                linea_procesada = procesar_linea_con_acordes_y_indices(temp_linea, [], titulo_cancion_actual)
-            else: # Línea de texto simple
-                linea_procesada = temp_linea.replace('#', '\\#') # Escapar '#'
+            # La función procesar_bloque_simple_linea ahora devuelve \textnote{...}
+            linea_procesada = procesar_bloque_simple_linea(temp_linea, transposicion)
 
             if rep_ini and rep_fin:
                 linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
@@ -551,13 +565,9 @@ def convertir_songpro(texto):
         # Debe ser añadido al bloque actual (posiblemente un 'verse' implícito si no hay otro).
         # Esto podría ser lo que faltaba para líneas que no se capturaban.
         if cancion_abierta and temp_linea:
-            # Asegurar que si hay acordes embebidos o índices en este texto suelto, se procesen.
-            if '_' in temp_linea or '#' in temp_linea:
-                linea_procesada = procesar_linea_con_acordes_y_indices(temp_linea, [], titulo_cancion_actual)
-            else:
-                linea_procesada = temp_linea.replace('#', '\\#')
+            # Asumir que esto es texto de la canción. Envuelve en \textnote
+            linea_procesada = procesar_bloque_simple_linea(temp_linea, transposicion)
             
-            # Si no hay bloque abierto, se asume un verso
             if tipo_bloque is None:
                 tipo_bloque = 'verse' # Iniciar un verso implícito
             
