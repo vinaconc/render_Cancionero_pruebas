@@ -301,6 +301,8 @@ def convertir_songpro(texto):
 			if es_linea_acordes(linea):
 				acordes = linea.split()
 				acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+				if es_seccion_n:
+    				acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
 				# Escapar sostenidos en acordes para LaTeX
 				acordes_escapados = [a.replace('#', '\\#') for a in acordes_convertidos]
 				latex_acordes = ' '.join(f'\\[{a}]' for a in acordes_escapados)
@@ -787,6 +789,7 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
