@@ -760,8 +760,62 @@ FORM_HTML = """
 <script>
 const form = document.getElementById("formulario");
 
+// Función para validar acordes
+function validarAcordes(texto) {
+    const lineas = texto.split('\n');
+    const errores = [];
+    
+    for (let i = 0; i < lineas.length; i++) {
+        const linea = lineas[i].trim();
+        
+        // Saltar líneas vacías, títulos, marcadores, etc.
+        if (!linea || linea.startsWith('S ') || linea.startsWith('O ') || 
+            ['V', 'C', 'M', 'N'].includes(linea) || linea.startsWith('ref=') ||
+            linea.match(/^[A-Z\s]+$/) || linea.includes('_')) {
+            continue;
+        }
+        
+        const tokens = linea.split(/\s+/);
+        let tieneAcordesValidos = false;
+        let tieneTokensInvalidos = false;
+        const tokensInvalidos = [];
+        
+        for (const token of tokens) {
+            // Verificar si es un acorde válido en notación americana
+            const acordeAmericano = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(\/[A-G][#b]?)?$/i;
+            // Verificar si es un acorde válido en notación latina
+            const notasLatinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si', 'reb', 'mib', 'lab', 'sib', 'do#', 're#', 'fa#', 'sol#', 'la#'];
+            const acordeLatino = notasLatinas.some(nota => token.toLowerCase().startsWith(nota.toLowerCase()));
+            
+            if (acordeAmericano.test(token) || acordeLatino) {
+                tieneAcordesValidos = true;
+            } else {
+                tieneTokensInvalidos = true;
+                tokensInvalidos.push(token);
+            }
+        }
+        
+        // Si la línea tiene acordes válidos pero también tokens inválidos, es un error
+        if (tieneAcordesValidos && tieneTokensInvalidos) {
+            errores.push(`Línea ${i + 1}: Acordes inválidos: ${tokensInvalidos.join(', ')}. Use acordes válidos como: C, D, E, F, G, A, B, Do, Re, Mi, Fa, Sol, La, Si, etc.`);
+        }
+    }
+    
+    return errores;
+}
+
 form.addEventListener("submit", async function (e) {
     e.preventDefault(); // no recargar página
+    
+    // Validar sintaxis antes de enviar
+    const texto = document.getElementById("texto").value;
+    const errores = validarAcordes(texto);
+    
+    if (errores.length > 0) {
+        alert("Error de sintaxis detectado:\n\n" + errores.join("\n") + "\n\nPor favor, corrige los errores y vuelve a intentar.");
+        return;
+    }
+    
     const formData = new FormData(form);
 
     try {
