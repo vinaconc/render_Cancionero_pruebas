@@ -8,6 +8,17 @@ import unicodedata
 
 
 app = Flask(__name__)
+app.config['ENV'] = 'production'
+app.config['DEBUG'] = False
+app.config['TESTING'] = False
+app.config['PROPAGATE_EXCEPTIONS'] = False
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Registrar el error para depuración pero no mostrarlo al usuario
+    app.logger.error(f"Error no manejado: {str(e)}")
+    app.logger.error(traceback.format_exc())
+    # Devolver un mensaje de error genérico
+    return jsonify({"error": "Error inesperado en el servidor."}), 500
 
 archivo_plantilla = "plantilla.tex"
 
@@ -816,5 +827,6 @@ def ver_log():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
-    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+
 
