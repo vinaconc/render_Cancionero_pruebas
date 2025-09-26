@@ -668,7 +668,6 @@ def compilar_tex_seguro(tex_path):
 		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
 @app.route("/", methods=["GET", "POST"])
 def index():
-    texto = ""
     FORM_HTML = """ 
     <h2>Creador Cancionero</h2>
     <form id="formCancionero" method="post" enctype="multipart/form-data">
@@ -697,13 +696,13 @@ def index():
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.message);
+                alert("❌ ¡Error de sintaxis!\n" + data.message);
             } else {
                 window.open(data.pdf_url, "_blank");
             }
         })
         .catch(() => {
-            alert("Error inesperado en la comunicación con el servidor.");
+            alert("⚠️ Error inesperado en la comunicación con el servidor.");
         });
     });
 
@@ -728,61 +727,66 @@ def index():
     </script>
     """
 
-    try:
-        if request.method == "POST":
-            accion = request.form.get("accion")
-            texto = request.form.get("texto", "")
-            uploaded_file = request.files.get("archivo")
-            if uploaded_file and uploaded_file.filename:
-                texto = uploaded_file.read().decode("utf-8")
+    if request.method == "POST":
+        accion = request.form.get("accion")
+        texto = request.form.get("texto", "")
+        uploaded_file = request.files.get("archivo")
 
-            if accion == "abrir":
-                try:
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
-                        f.write(texto)
-                except Exception:
-                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
-                return render_template_string(FORM_HTML, texto=texto)
+        if uploaded_file and uploaded_file.filename:
+            texto = uploaded_file.read().decode("utf-8")
 
-            if accion == "generar_pdf":
-                try:
-                    # Aquí debes poner tu función para convertir y compilar
-                    contenido_canciones = convertir_songpro(texto)
-                    indice_tematica = generar_indice_tematica()
+        # Lógica para generar el PDF
+        if accion == "generar_pdf":
+            try:
+                # La lógica de conversión y compilación es correcta aquí.
+                contenido_canciones = convertir_songpro(texto)
+                indice_tematica = generar_indice_tematica()
 
-                    def reemplazar(match):
-                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+                def reemplazar(match):
+                    return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
 
-                    nuevo_tex = re.sub(
-                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
-                        reemplazar,
-                        plantilla,
-                        flags=re.S
-                    )
+                nuevo_tex = re.sub(
+                    r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                    reemplazar,
+                    plantilla,
+                    flags=re.S
+                )
 
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
-                        f.write(nuevo_tex)
+                with open(archivo_salida, "w", encoding="utf-8") as f:
+                    f.write(nuevo_tex)
 
-                    logs = compilar_tex_seguro(archivo_salida)
+                logs = compilar_tex_seguro(archivo_salida)
 
-                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-                    nombre_pdf = os.path.basename(pdf_file)
-                    dest_pdf = os.path.join(directorio_pdfs, nombre_pdf)
+                pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+                nombre_pdf = os.path.basename(pdf_file)
+                dest_pdf = os.path.join(directorio_pdfs, nombre_pdf)
 
-                    if os.path.exists(pdf_file):
-                        # Copiar o mover pdf a directorio accesible
-                        os.rename(pdf_file, dest_pdf)  # o shutil.move(pdf_file, dest_pdf)
-                        return jsonify({"error": False, "pdf_url": f"/pdfs/{nombre_pdf}"})
-                    else:
-                        return jsonify({"error": True, "message": "PDF no generado. Verifique la sintaxis."})
-                except Exception as e:
-                    return jsonify({"error": True, "message": f"Error en generar PDF: {str(e)}"})
+                if os.path.exists(pdf_file):
+                    os.rename(pdf_file, dest_pdf)
+                    return jsonify({"error": False, "pdf_url": f"/pdfs/{nombre_pdf}"})
+                else:
+                    return jsonify({"error": True, "message": "No se generó el PDF. Verifique la sintaxis."})
 
-        return render_template_string(FORM_HTML, texto=texto)
+            except Exception as e:
+                # Captura y maneja errores de sintaxis de LaTeX
+                return jsonify({"error": True, "message": f"Error en generar PDF: {str(e)}"})
+        
+        # Lógica para abrir/cargar archivo
+        elif accion == "abrir":
+            try:
+                # Se mantiene la lógica original para guardar el texto
+                with open(archivo_salida, "w", encoding="utf-8") as f:
+                    f.write(texto)
+            except Exception:
+                return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+            return render_template_string(FORM_HTML, texto=texto)
+            
+        else:
+            # Si no se reconoce la acción, se puede redirigir o mostrar un error
+            return jsonify({"error": True, "message": "Acción no válida."})
 
-    except Exception as e:
-        return jsonify({"error": True, "message": f"Error inesperado: {str(e)}"})
-
+    # Lógica para GET
+    return render_template_string(FORM_HTML, texto="")
 @app.route("/pdfs/<filename>")
 def servir_pdf(filename):
     path = os.path.join(directorio_pdfs, filename)
@@ -807,3 +811,4 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
