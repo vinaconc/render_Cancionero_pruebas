@@ -728,16 +728,22 @@ def index():
                             return send_file(pdf_file, as_attachment=False)
                         else:
                             return jsonify({"error": "Error de sintaxis en el texto ingresado"})
-                    except Exception:
+                    except Exception as e:
+                        # Asegurar que no se muestre el traceback al usuario
+                        app.logger.error(f"Error en compilación PDF: {str(e)}")
                         return jsonify({"error": "Error de sintaxis en el texto ingresado"})
 
-                except Exception:
+                except Exception as e:
+                    # Asegurar que no se muestre el traceback al usuario
+                    app.logger.error(f"Error en procesamiento: {str(e)}")
                     return jsonify({"error": "Error de sintaxis en el texto ingresado"})
 
         # GET inicial
         return render_template_string(FORM_HTML, texto=texto)
 
-    except Exception:
+    except Exception as e:
+        # Asegurar que no se muestre el traceback al usuario
+        app.logger.error(f"Error general: {str(e)}")
         return jsonify({"error": "Error inesperado en el servidor."})
 
 
