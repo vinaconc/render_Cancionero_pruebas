@@ -666,130 +666,141 @@ def compilar_tex_seguro(tex_path):
 
 	except Exception as e:
 		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
+@app.route("/", methods=["GET", "POST"])
 def index():
-    FORM_HTML = """ 
-    <h2>Creador Cancionero</h2>
-    <form id="formCancionero" method="post" enctype="multipart/form-data">
-        <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
-        <button type="button" id="btnInsertB">Repit</button>
-        <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
+    texto = ""
 
-        <label for="archivo">O sube un archivo de texto:</label>
-        <input type="file" name="archivo" id="archivo"><br><br>
-
-        <button type="submit" name="accion" value="abrir">Abrir</button>
-        <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
-        <button type="button" id="btnGenerarPDF">Generar PDF</button>
-    </form>
-
-    <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const btn = document.getElementById("btnGenerarPDF");
-        btn.addEventListener("click", function() {
-            const form = document.getElementById("formCancionero");
-            const formData = new FormData(form);
-
-            fetch("/generar_pdf", { method: "POST", body: formData })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) alert(data.message);
-                else window.open(data.pdf_url, "_blank");
-            })
-            .catch(error => alert("Error: " + error.message));
-        });
-    });
-
-    function insertarTexto(texto) {
-        const textarea = document.getElementById("texto");
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const value = textarea.value;
-
-        textarea.value = value.substring(0, start) + texto + value.substring(end);
-        textarea.selectionStart = textarea.selectionEnd = start + texto.length;
-        textarea.focus();
-    }
-
-    document.getElementById("btnInsertB").addEventListener("click", function() {
-        insertarTexto("B");
-    });
-
-    document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
-        insertarTexto("_");
-    });
-    </script>
-    """
-    
-    # Acción abrir archivo (sólo renderiza HTML)
-    if request.method == "POST":
-        accion = request.form.get("accion")
-        texto = request.form.get("texto", "")
-        uploaded_file = request.files.get("archivo")
-
-        if uploaded_file and uploaded_file.filename:
-            texto = uploaded_file.read().decode("utf-8")
-
-        if accion == "abrir":
-            try:
-                with open(archivo_salida, "w", encoding="utf-8") as f:
-                    f.write(texto)
-            except Exception:
-                return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
-            return render_template_string(FORM_HTML, texto=texto)
-
-    return render_template_string(FORM_HTML, texto="")
-
-# ---------------------------
-# NUEVA RUTA SOLO PDF
-# ---------------------------
-@app.route("/generar_pdf", methods=["POST"])
-def generar_pdf():
-    texto = request.form.get("texto", "")
     try:
-        contenido_canciones = convertir_songpro(texto)
-        indice_tematica = generar_indice_tematica()
+        if request.method == "POST":
+            accion = request.form.get("accion")
 
-        def reemplazar(match):
-            return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+            # 👉 Obtener texto del formulario o archivo
+            texto = request.form.get("texto", "")
+            uploaded_file = request.files.get("archivo")
+            if uploaded_file and uploaded_file.filename:
+                texto = uploaded_file.read().decode("utf-8")
 
-        nuevo_tex = re.sub(
-            r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
-            reemplazar,
-            plantilla,
-            flags=re.S
-        )
+            # 👉 ABRIR
+            if accion in ("abrir"):
+                try:
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(texto)
+                except Exception:
+                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                return render_template_string(FORM_HTML, texto=texto)
 
-        with open(archivo_salida, "w", encoding="utf-8") as f:
-            f.write(nuevo_tex)
+            # 👉 GENERAR PDF (flujo controlado)
+            if accion == "generar_pdf":
+                try:
+                    # 1️⃣ Procesar canciones
+                    contenido_canciones = convertir_songpro(texto)
 
-        logs = compilar_tex_seguro(archivo_salida)
+                    # 2️⃣ Generar índice temático
+                    indice_tematica = generar_indice_tematica()
 
-        pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-        nombre_pdf = os.path.basename(pdf_file)
-        dest_pdf = os.path.join(directorio_pdfs, nombre_pdf)
+                    # 3️⃣ Reemplazar en la plantilla
+                    def reemplazar(match):
+                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
 
-        if os.path.exists(pdf_file):
-            os.rename(pdf_file, dest_pdf)
-            return jsonify({"error": False, "pdf_url": f"/pdfs/{nombre_pdf}"})
-        else:
-            return jsonify({"error": True, "message": "No se generó el PDF. Verifique la sintaxis."})
+                    nuevo_tex = re.sub(
+                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                        reemplazar,
+                        plantilla,
+                        flags=re.S
+                    )
 
-    except Exception as e:
-        return jsonify({"error": True, "message": f"Error en generar PDF: {str(e)}"})
+                    # 4️⃣ Guardar TEX
+                    with open(archivo_salida, "w", encoding="utf-8") as f:
+                        f.write(nuevo_tex)
 
-# ---------------------------
-# DESCARGA Y PDFS
-# ---------------------------
-@app.route("/pdfs/<filename>")
-def servir_pdf(filename):
-    path = os.path.join(directorio_pdfs, filename)
-    return send_file(path, as_attachment=False)
+                    # 5️⃣ Compilar PDF
+                    logs = compilar_tex_seguro(archivo_salida)
+
+                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+                    if os.path.exists(pdf_file):
+                        return send_file(pdf_file, as_attachment=False)
+                    else:
+                        return jsonify({"error": "Error de sintaxis en el archivo LaTeX."})
+
+                except Exception:
+                    return jsonify({"error": "Error de sintaxis en el archivo LaTeX."})
+
+        # GET inicial
+        return render_template_string(FORM_HTML, texto=texto)
+
+    except Exception:
+        return jsonify({"error": "Error inesperado en el servidor."})
+
+
+# 🔹 HTML con menú y botón PDF
+FORM_HTML = """
+<h2>Creador Cancionero</h2>
+<form id="formulario" method="post" enctype="multipart/form-data">
+    <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <button type="button" id="btnInsertB">Repit</button>
+    <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
+
+    <label for="archivo">O sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
+    <!-- Menú de acciones -->
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
+    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+</form>
+
+<script>
+const form = document.getElementById("formulario");
+
+form.addEventListener("submit", async function (e) {
+    e.preventDefault(); // no recargar página
+    const formData = new FormData(form);
+
+    try {
+        const resp = await fetch("/", {
+            method: "POST",
+            body: formData
+        });
+
+        const contentType = resp.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+            const data = await resp.json();
+            alert(data.error || "Error de compilación.");
+        } else {
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        }
+    } catch (err) {
+        alert("Error de conexión con el servidor.");
+    }
+});
+
+function insertarTexto(texto) {
+    const textarea = document.getElementById("texto");
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+
+    textarea.value = value.substring(0, start) + texto + value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
+    textarea.focus();
+}
+
+document.getElementById("btnInsertB").addEventListener("click", function() {
+    insertarTexto("B");
+});
+
+document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
+    insertarTexto("_");
+});
+</script>
+"""
 
 @app.route("/descargar", methods=["POST"])
 def descargar():
     texto = request.form.get("texto", "")
     nombre_archivo = request.form.get("nombre_archivo", "cancionero.txt")
-
     return Response(
         texto,
         mimetype="text/plain",
@@ -800,6 +811,9 @@ def descargar():
 def health():
     return "ok", 200
 
+@app.route("/ver_log")
+def ver_log():
+    return send_file("plantilla.log", mimetype="text/plain")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
