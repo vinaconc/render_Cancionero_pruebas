@@ -608,64 +608,59 @@ texto_ejemplo = """
  """
 
 def compilar_tex_seguro(tex_path):
-	"""
-	Compila un archivo .tex y devuelve el log completo.
-	Muestra errores y advertencias sin detener el servidor.
-	"""
-	tex_dir = os.path.dirname(tex_path) or "."
-	tex_file = os.path.basename(tex_path)
+    """
+    Compila un archivo .tex y devuelve True si tuvo éxito.
+    En caso de error, lanza RuntimeError genérico sin mostrar el log.
+    El log completo se guarda en 'plantilla.log' para depuración.
+    """
+    tex_dir = os.path.dirname(tex_path) or "."
+    tex_file = os.path.basename(tex_path)
+    logs = ""
 
-	try:
-		# Ejecutar pdflatex -> makeindex (si aplica) -> pdflatex
-		logs = ""
+    try:
+        # Primera pasada
+        result = subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_file],
+            capture_output=True, text=True, cwd=tex_dir
+        )
+        logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
+        if result.returncode != 0:
+            raise RuntimeError("Error compilando LaTeX en la primera pasada.")
 
-		# Primera pasada
-		result = subprocess.run(
-			["pdflatex", "-interaction=nonstopmode", tex_file],
-			capture_output=True,
-			text=True,
-			cwd=tex_dir
-		)
-		logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
-		if result.returncode != 0:
-			raise RuntimeError(f"Error compilando LaTeX en la primera iteración.\nLog completo:\n{logs}")
+        # makeindex (si aplica)
+        base = os.path.splitext(tex_file)[0]
+        for entrada, salida in [
+            (f"{base}.idx", None),
+            (f"{base}.tema.idx", f"{base}.tema.ind"),
+            (f"{base}.cbtitle", f"{base}.cbtitle.ind"),
+        ]:
+            if os.path.exists(os.path.join(tex_dir, entrada)):
+                cmd = ["makeindex", entrada] if salida is None else ["makeindex", "-o", salida, entrada]
+                mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
+                logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
-		# makeindex para índices conocidos (si existen)
-		base = os.path.splitext(tex_file)[0]
-		posibles_indices = [
-			(f"{base}.idx", None),
-			(f"{base}.tema.idx", f"{base}.tema.ind"),
-			(f"{base}.cbtitle", f"{base}.cbtitle.ind"),
-		]
-		for entrada, salida in posibles_indices:
-			entrada_path = os.path.join(tex_dir, entrada)
-			if os.path.exists(entrada_path):
-				cmd = ["makeindex", entrada]
-				if salida is not None:
-					cmd = ["makeindex", "-o", salida, entrada]
-				mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
-				logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
+        # Segunda pasada
+        result2 = subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_file],
+            capture_output=True, text=True, cwd=tex_dir
+        )
+        logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
+        if result2.returncode != 0:
+            raise RuntimeError("Error compilando LaTeX en la segunda pasada.")
 
-		# Segunda pasada
-		result2 = subprocess.run(
-			["pdflatex", "-interaction=nonstopmode", tex_file],
-			capture_output=True,
-			text=True,
-			cwd=tex_dir
-		)
-		logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
-		if result2.returncode != 0:
-			raise RuntimeError(f"Error compilando LaTeX en la segunda iteración.\nLog completo:\n{logs}")
+        # Verificar PDF
+        pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
+        if not os.path.exists(pdf_file):
+            raise RuntimeError("No se generó el PDF.")
 
-		# Verificar que se generó PDF
-		pdf_file = os.path.splitext(tex_path)[0] + ".pdf"
-		if not os.path.exists(pdf_file):
-			raise RuntimeError(f"No se generó el PDF. Revisa el log:\n{logs}")
+        return True
 
-		return logs
-
-	except Exception as e:
-		raise RuntimeError(f"Excepción en compilación: {e}\n{logs}")
+    except Exception as e:
+        # Guardar log completo en archivo (para que puedas revisarlo manualmente)
+        with open(os.path.join(tex_dir, "plantilla.log"), "w", encoding="utf-8") as f:
+            f.write(logs)
+        # Lanzar error genérico
+        raise RuntimeError("Error de sintaxis en el archivo LaTeX.")
 @app.route("/", methods=["GET", "POST"])
 def index():
     texto = ""
@@ -818,3 +813,4 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
