@@ -676,12 +676,13 @@ def index():
                 texto = uploaded_file.read().decode("utf-8")
 
             # 👉 ABRIR
-            if accion in ("abrir"):
+            if accion == "abrir":
                 try:
                     with open(archivo_salida, "w", encoding="utf-8") as f:
                         f.write(texto)
-                except Exception:
-                    return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
+                except Exception as e:
+                    # No mostrar el traceback completo al usuario
+                    return jsonify({"error": "Error al guardar el archivo"})
                 return render_template_string(FORM_HTML, texto=texto)
 
             # 👉 GENERAR PDF (flujo controlado)
@@ -810,8 +811,10 @@ def health():
 
 @app.route("/ver_log")
 def ver_log():
-    return send_file("plantilla.log", mimetype="text/plain")
+    # No mostrar el log completo al usuario, solo un mensaje de error genérico
+    return jsonify({"error": "Error de sintaxis"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
