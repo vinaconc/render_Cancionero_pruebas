@@ -687,7 +687,7 @@ def index():
                     return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
                 return render_template_string(FORM_HTML, texto=texto)
 
-            # 👉 GENERAR PDF (flujo original tuyo)
+            # 👉 GENERAR PDF
             if accion == "generar_pdf":
                 try:
                     # 1️⃣ Procesar canciones
@@ -718,20 +718,19 @@ def index():
                     if os.path.exists(pdf_file):
                         return send_file(pdf_file, as_attachment=False)
                     else:
-                        return "<h3>PDF no generado.</h3>"
-
-                except Exception:
-                    return f"<h3>Error en generar PDF:</h3><pre>{traceback.format_exc()}</pre>"
+                        return jsonify({"error": True, "message": "PDF no generado. Verifique la sintaxis."})
+                except Exception as e:
+                    return jsonify({"error": True, "message": f"Error en generar PDF: {str(e)}"})
 
         # GET inicial
         return render_template_string(FORM_HTML, texto=texto)
 
-    except Exception:
-        return f"<h3>Error inesperado:</h3><pre>{traceback.format_exc()}</pre>"
+    except Exception as e:
+        return jsonify({"error": True, "message": f"Error inesperado: {str(e)}"})
 
 
 # 🔹 HTML con "menú" y opción de generar PDF
-FORM_HTML = """
+<form id="formCancionero" method="post" enctype="multipart/form-data">
 <h2>Creador Cancionero</h2>
 <form method="post" enctype="multipart/form-data">
     <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
@@ -743,9 +742,33 @@ FORM_HTML = """
     <!-- Menú de acciones -->
     <button type="submit" name="accion" value="abrir">Abrir</button>
     <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
-    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+    <button type="button" id="btnGenerarPDF">Generar PDF</button>
 </form>
+<script>
+document.getElementById("btnGenerarPDF").addEventListener("click", function(event) {
+    var form = document.getElementById("formCancionero");
+    var formData = new FormData(form);
+    // Setear acción para generar PDF
+    formData.set("accion", "generar_pdf");
 
+    fetch("/", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.message);
+        } else {
+            // Abrir pdf generado (ajusta la ruta si es distinta)
+            window.open(data.pdf_url, "_blank");
+        }
+    })
+    .catch(() => {
+        alert("Error inesperado en la comunicación con el servidor.");
+    });
+});
+</script>
 <script>
 function insertarTexto(texto) {
     const textarea = document.getElementById("texto");
@@ -791,3 +814,4 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
