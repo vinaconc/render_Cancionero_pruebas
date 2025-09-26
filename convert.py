@@ -693,7 +693,16 @@ def index():
             method: "POST",
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            // Verifica si la respuesta es JSON antes de intentar analizarla
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return response.json();
+            } else {
+                // Si la respuesta no es JSON, se considera un error
+                throw new TypeError("Respuesta del servidor no es JSON. Es posible que haya un error de sintaxis en el código de Python.");
+            }
+        })
         .then(data => {
             if (data.error) {
                 alert("❌ ¡Error de sintaxis!\n" + data.message);
@@ -701,8 +710,8 @@ def index():
                 window.open(data.pdf_url, "_blank");
             }
         })
-        .catch(() => {
-            alert("⚠️ Error inesperado en la comunicación con el servidor.");
+        .catch(error => {
+            alert("⚠️ Error inesperado en la comunicación con el servidor: " + error.message);
         });
     });
 
@@ -726,7 +735,8 @@ def index():
     });
     </script>
     """
-
+    
+    # Manejo de la lógica del POST
     if request.method == "POST":
         accion = request.form.get("accion")
         texto = request.form.get("texto", "")
@@ -735,10 +745,9 @@ def index():
         if uploaded_file and uploaded_file.filename:
             texto = uploaded_file.read().decode("utf-8")
 
-        # Lógica para generar el PDF
         if accion == "generar_pdf":
             try:
-                # La lógica de conversión y compilación es correcta aquí.
+                # La lógica para generar el PDF
                 contenido_canciones = convertir_songpro(texto)
                 indice_tematica = generar_indice_tematica()
 
@@ -766,27 +775,29 @@ def index():
                     return jsonify({"error": False, "pdf_url": f"/pdfs/{nombre_pdf}"})
                 else:
                     return jsonify({"error": True, "message": "No se generó el PDF. Verifique la sintaxis."})
-
+            
             except Exception as e:
-                # Captura y maneja errores de sintaxis de LaTeX
+                # Si ocurre un error, siempre se devuelve un JSON de error
                 return jsonify({"error": True, "message": f"Error en generar PDF: {str(e)}"})
         
-        # Lógica para abrir/cargar archivo
         elif accion == "abrir":
+            # Para la acción de abrir, se redirige o se muestra la página con el texto cargado
             try:
-                # Se mantiene la lógica original para guardar el texto
                 with open(archivo_salida, "w", encoding="utf-8") as f:
                     f.write(texto)
             except Exception:
+                # En caso de error, puedes optar por devolver un JSON de error también,
+                # pero el diseño actual espera una página HTML
                 return f"<h3>Error guardando archivo:</h3><pre>{traceback.format_exc()}</pre>"
             return render_template_string(FORM_HTML, texto=texto)
             
         else:
-            # Si no se reconoce la acción, se puede redirigir o mostrar un error
+            # Para cualquier otra acción POST, se devuelve un JSON de error
             return jsonify({"error": True, "message": "Acción no válida."})
 
     # Lógica para GET
     return render_template_string(FORM_HTML, texto="")
+
 @app.route("/pdfs/<filename>")
 def servir_pdf(filename):
     path = os.path.join(directorio_pdfs, filename)
@@ -811,4 +822,5 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
