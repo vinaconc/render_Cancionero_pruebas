@@ -669,71 +669,68 @@ def compilar_tex_seguro(tex_path):
 @app.route("/", methods=["GET", "POST"])
 def index():
     FORM_HTML = """ 
-    <h2>Creador Cancionero</h2>
-    <form id="formCancionero" method="post" enctype="multipart/form-data">
-        <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
-        <button type="button" id="btnInsertB">Repit</button>
-        <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
+<h2>Creador Cancionero</h2>
+<form id="formCancionero" method="post" enctype="multipart/form-data">
+    <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
+    <button type="button" id="btnInsertB">Repit</button>
+    <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
 
-        <label for="archivo">O sube un archivo de texto:</label>
-        <input type="file" name="archivo" id="archivo"><br><br>
+    <label for="archivo">O sube un archivo de texto:</label>
+    <input type="file" name="archivo" id="archivo"><br><br>
 
-        <button type="submit" name="accion" value="abrir">Abrir</button>
-        <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
-        <button type="button" id="btnGenerarPDF">Generar PDF</button>
-    </form>
+    <button type="submit" name="accion" value="abrir">Abrir</button>
+    <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
+    <button type="button" id="btnGenerarPDF">Generar PDF</button>
+</form>
 
-    <script>
-    document.getElementById("btnGenerarPDF").addEventListener("click", function() {
-        var form = document.getElementById("formCancionero");
-        var formData = new FormData(form);
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const btn = document.getElementById("btnGenerarPDF");
+    if (!btn) {
+        console.error("No se encontró el botón Generar PDF");
+        return;
+    }
+    btn.addEventListener("click", function() {
+        const form = document.getElementById("formCancionero");
+        const formData = new FormData(form);
         formData.set("accion", "generar_pdf");
 
-        fetch("/", {
-            method: "POST",
-            body: formData
-        })
+        fetch("/", { method: "POST", body: formData })
         .then(response => {
-            // Verifica si la respuesta es JSON antes de intentar analizarla
             const contentType = response.headers.get("content-type");
             if (contentType && contentType.includes("application/json")) {
                 return response.json();
             } else {
-                // Si la respuesta no es JSON, se considera un error
-                throw new TypeError("Respuesta del servidor no es JSON. Es posible que haya un error de sintaxis en el código de Python.");
+                throw new Error("Respuesta no es JSON, posible error en backend.");
             }
         })
         .then(data => {
-            if (data.error) {
-                alert("❌ ¡Error de sintaxis!\n" + data.message);
-            } else {
-                window.open(data.pdf_url, "_blank");
-            }
+            if (data.error) alert(data.message);
+            else window.open(data.pdf_url, "_blank");
         })
-        .catch(error => {
-            alert("⚠️ Error inesperado en la comunicación con el servidor: " + error.message);
-        });
+        .catch(error => alert("Error: " + error.message));
     });
+});
 
-    function insertarTexto(texto) {
-        const textarea = document.getElementById("texto");
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const value = textarea.value;
+function insertarTexto(texto) {
+    const textarea = document.getElementById("texto");
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
 
-        textarea.value = value.substring(0, start) + texto + value.substring(end);
-        textarea.selectionStart = textarea.selectionEnd = start + texto.length;
-        textarea.focus();
-    }
+    textarea.value = value.substring(0, start) + texto + value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
+    textarea.focus();
+}
 
-    document.getElementById("btnInsertB").addEventListener("click", function() {
-        insertarTexto("B");
-    });
+document.getElementById("btnInsertB").addEventListener("click", function() {
+    insertarTexto("B");
+});
 
-    document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
-        insertarTexto("_");
-    });
-    </script>
+document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
+    insertarTexto("_");
+});
+</script>
     """
     
     # Manejo de la lógica del POST
@@ -822,5 +819,6 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
