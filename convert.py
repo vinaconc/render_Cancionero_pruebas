@@ -709,16 +709,18 @@ def index():
                         f.write(nuevo_tex)
 
                     # 5️⃣ Compilar PDF
-                    logs = compilar_tex_seguro(archivo_salida)
-
-                    pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-                    if os.path.exists(pdf_file):
-                        return send_file(pdf_file, as_attachment=False)
-                    else:
-                        return jsonify({"error": "Error de sintaxis en el archivo LaTeX."})
+                    try:
+                        logs = compilar_tex_seguro(archivo_salida)
+                        pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+                        if os.path.exists(pdf_file):
+                            return send_file(pdf_file, as_attachment=False)
+                        else:
+                            return jsonify({"error": "Error de sintaxis"})
+                    except Exception:
+                        return jsonify({"error": "Error de sintaxis"})
 
                 except Exception:
-                    return jsonify({"error": "Error de sintaxis en el archivo LaTeX."})
+                    return jsonify({"error": "Error de sintaxis"})
 
         # GET inicial
         return render_template_string(FORM_HTML, texto=texto)
@@ -813,4 +815,3 @@ def ver_log():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
