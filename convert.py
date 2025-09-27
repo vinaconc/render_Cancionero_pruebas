@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, render_template_string, Response
+from flask import session, Flask, request, jsonify, send_file, render_template_string, Response, redirect, url_for
 import traceback
 import os
 import subprocess
@@ -8,6 +8,7 @@ import unicodedata
 
 
 app = Flask(__name__)
+app.secret_key = 'Quique04#'
 app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
 app.config['TESTING'] = False
@@ -296,38 +297,38 @@ def convertir_songpro(texto):
 			cancion_abierta = False
 
 	def procesar_bloque_simple(texto, transposicion, es_seccion_n=False):
-	    lineas = texto.strip().split('\n')
-	    resultado = []
-	    for linea in lineas:
-	        linea = linea.strip()
-	        if not linea:
-	            continue
-	        match = re.match(r'^([^:]+):\s*(.*)$', linea)
-	        if match:
-	            texto_linea, acordes_linea = match.groups()
-	            acordes = acordes_linea.split()
-	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-	            if es_seccion_n:
-	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
-	            latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
-	            resultado.append(rf'\textnote{{{texto_linea.strip()}}}')
-	            resultado.append(rf'\mbox{{{latex_acordes}}}')
-	            continue
-	        if es_linea_acordes(linea):
-	            acordes = linea.split()
-	            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-	            if es_seccion_n:
-	                acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
-	            latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
-	            resultado.append(rf'\mbox{{{latex_acordes}}}')
-	            continue
-	        else:
-	            if linea.strip() in ('V', 'C', 'M', 'N'):
-	                continue  # evitar procesar marcadores
-	            if es_seccion_n:
-	                linea = linea.replace('#', r'\#')
-	            resultado.append(linea + r'\\')
-	    return '\n'.join(resultado)
+		lineas = texto.strip().split('\n')
+		resultado = []
+		for linea in lineas:
+			linea = linea.strip()
+			if not linea:
+				continue
+			match = re.match(r'^([^:]+):\s*(.*)$', linea)
+			if match:
+				texto_linea, acordes_linea = match.groups()
+				acordes = acordes_linea.split()
+				acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+				if es_seccion_n:
+					acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+				latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
+				resultado.append(rf'\textnote{{{texto_linea.strip()}}}')
+				resultado.append(rf'\mbox{{{latex_acordes}}}')
+				continue
+			if es_linea_acordes(linea):
+				acordes = linea.split()
+				acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+				if es_seccion_n:
+					acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
+				latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
+				resultado.append(rf'\mbox{{{latex_acordes}}}')
+				continue
+			else:
+				if linea.strip() in ('V', 'C', 'M', 'N'):
+					continue  # evitar procesar marcadores
+				if es_seccion_n:
+					linea = linea.replace('#', r'\#')
+				resultado.append(linea + r'\\')
+		return '\n'.join(resultado)
 
 	i = 0
 	while i < len(lineas):
@@ -672,81 +673,86 @@ def compilar_tex_seguro(tex_path):
             f.write(logs)
         # Lanzar error genérico
         raise RuntimeError("Error de sintaxis en el texto ingresado")
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    texto = ""
+    # 1. Recuperar el 'error' y el 'texto' de la sesión y LIMPIAR el error
+    error = session.pop('error', None)
+    texto = session.get('texto_guardado', "") # Usamos get() para persistir el texto
+    
+    # Si la solicitud es POST
+    if request.method == "POST":
+        accion = request.form.get("accion")
+        
+        # Siempre leer el texto actual del formulario/archivo para la ejecución actual
+        texto_actual = request.form.get("texto", "") 
+        uploaded_file = request.files.get("archivo")
+        if uploaded_file and uploaded_file.filename:
+            texto_actual = uploaded_file.read().decode("utf-8")
+        
+        texto = texto_actual # 'texto' ahora tiene el input actual
+        
+        # 2. Persistir el texto en la sesión para el caso de éxito y de vuelta del PDF
+        session['texto_guardado'] = texto 
 
-    try:
-        if request.method == "POST":
-            accion = request.form.get("accion")
+        # 👉 ABRIR
+        if accion == "abrir":
+            try:
+                # [Asumiendo que 'archivo_salida' es una variable global o importada]
+                with open(archivo_salida, "w", encoding="utf-8") as f:
+                    f.write(texto)
+            except Exception:
+                session['error'] = "Error al guardar el archivo" 
+            
+            # PRG: Redirigir siempre.
+            return redirect(url_for('index'))
 
-            # 👉 Obtener texto del formulario o archivo
-            texto = request.form.get("texto", "")
-            uploaded_file = request.files.get("archivo")
-            if uploaded_file and uploaded_file.filename:
-                texto = uploaded_file.read().decode("utf-8")
+        # 👉 GENERAR PDF
+        elif accion == "generar_pdf": # <<-- Usar 'elif' para aislar el bloque
+            try:
+                # [Asumiendo que estas funciones y variables están definidas globalmente]
+                contenido_canciones = convertir_songpro(texto)
+                indice_tematica = generar_indice_tematica()
 
-            # 👉 ABRIR
-            if accion == "abrir":
-                try:
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
-                        f.write(texto)
-                except Exception as e:
-                    # No mostrar el traceback completo al usuario
-                    return jsonify({"error": "Error al guardar el archivo"})
-                return render_template_string(FORM_HTML, texto=texto)
+                def reemplazar(match):
+                    return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
 
-            # 👉 GENERAR PDF (flujo controlado)
-            if accion == "generar_pdf":
-                try:
-                    # 1️⃣ Procesar canciones
-                    contenido_canciones = convertir_songpro(texto)
+                nuevo_tex = re.sub(
+                    r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                    reemplazar,
+                    plantilla, # [Asumiendo que 'plantilla' está definida globalmente]
+                    flags=re.S
+                )
 
-                    # 2️⃣ Generar índice temático
-                    indice_tematica = generar_indice_tematica()
+                with open(archivo_salida, "w", encoding="utf-8") as f:
+                    f.write(nuevo_tex)
 
-                    # 3️⃣ Reemplazar en la plantilla
-                    def reemplazar(match):
-                        return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+                # Intenta compilar. Si falla, genera una excepción.
+                compilar_tex_seguro(archivo_salida) 
+                
+                pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
 
-                    nuevo_tex = re.sub(
-                        r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
-                        reemplazar,
-                        plantilla,
-                        flags=re.S
-                    )
+                if os.path.exists(pdf_file):
+                    # Éxito: Enviar el PDF directamente.
+                    return send_file(pdf_file, as_attachment=False)
+                else:
+                    # Si la compilación no lanzó error pero el archivo no existe
+                    session['error'] = "Error de sintaxis en el texto ingresado (archivo PDF no generado)."
+            
+            except Exception as e:
+                # Captura errores de sintaxis o de compilación.
+                app.logger.error(f"Error en procesamiento/compilación: {str(e)}")
+                session['error'] = "Error de sintaxis en el texto ingresado."
+            
+            # Si hubo error (o no se envió el PDF), redirigir para mostrar el alert.
+            return redirect(url_for('index'))
+        
+        # Si la acción NO es 'abrir' ni 'generar_pdf' (p. ej., un POST sin acción o descargar)
+        # Aquí puedes manejar la descarga si el JavaScript la permite, o simplemente continuar.
+        # Si la acción es la descarga, se maneja en @app.route("/descargar")
 
-                    # 4️⃣ Guardar TEX
-                    with open(archivo_salida, "w", encoding="utf-8") as f:
-                        f.write(nuevo_tex)
-
-                    # 5️⃣ Compilar PDF
-                    try:
-                        logs = compilar_tex_seguro(archivo_salida)
-                        pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-                        if os.path.exists(pdf_file):
-                            return send_file(pdf_file, as_attachment=False)
-                        else:
-                            return jsonify({"error": "Error de sintaxis en el texto ingresado"})
-                    except Exception as e:
-                        # Asegurar que no se muestre el traceback al usuario
-                        app.logger.error(f"Error en compilación PDF: {str(e)}")
-                        return jsonify({"error": "Error de sintaxis en el texto ingresado"})
-
-                except Exception as e:
-                    # Asegurar que no se muestre el traceback al usuario
-                    app.logger.error(f"Error en procesamiento: {str(e)}")
-                    return jsonify({"error": "Error de sintaxis en el texto ingresado"})
-
-        # GET inicial
-        return render_template_string(FORM_HTML, texto=texto)
-
-    except Exception as e:
-        # Asegurar que no se muestre el traceback al usuario
-        app.logger.error(f"Error general: {str(e)}")
-        return jsonify({"error": "Error inesperado en el servidor."})
-
-
+    # GET inicial o POST con error redirigido.
+    return render_template_string(FORM_HTML, texto=texto, error=error)
 # 🔹 HTML con menú y botón PDF
 FORM_HTML = """
 <h2>Creador Cancionero</h2>
@@ -774,7 +780,6 @@ function validarAcordes(texto) {
     for (let i = 0; i < lineas.length; i++) {
         const linea = lineas[i].trim();
         
-        // Saltar líneas vacías, títulos, marcadores, etc.
         if (!linea || linea.startsWith('S ') || linea.startsWith('O ') || 
             ['V', 'C', 'M', 'N'].includes(linea) || linea.startsWith('ref=') ||
             linea.match(/^[A-Z\s]+$/) || linea.includes('_')) {
@@ -787,9 +792,7 @@ function validarAcordes(texto) {
         const tokensInvalidos = [];
         
         for (const token of tokens) {
-            // Verificar si es un acorde válido en notación americana
             const acordeAmericano = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(\/[A-G][#b]?)?$/i;
-            // Verificar si es un acorde válido en notación latina
             const notasLatinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si', 'reb', 'mib', 'lab', 'sib', 'do#', 're#', 'fa#', 'sol#', 'la#'];
             const acordeLatino = notasLatinas.some(nota => token.toLowerCase().startsWith(nota.toLowerCase()));
             
@@ -801,7 +804,6 @@ function validarAcordes(texto) {
             }
         }
         
-        // Si la línea tiene acordes válidos pero también tokens inválidos, es un error
         if (tieneAcordesValidos && tieneTokensInvalidos) {
             errores.push(`Línea ${i + 1}: Acordes inválidos: ${tokensInvalidos.join(', ')}. Use acordes válidos como: C, D, E, F, G, A, B, Do, Re, Mi, Fa, Sol, La, Si, etc.`);
         }
@@ -809,11 +811,22 @@ function validarAcordes(texto) {
     
     return errores;
 }
+const form = document.getElementById("formulario");
 
 form.addEventListener("submit", async function (e) {
-    e.preventDefault(); // no recargar página
     
-    // Validar sintaxis antes de enviar
+    const submitter = e.submitter; 
+    const accion = submitter ? submitter.value : '';
+
+    // Si la acción es 'abrir', 'descargar', o cualquier otra, dejamos el envío nativo.
+    if (accion !== "generar_pdf") {
+        return; 
+    }
+
+    // A partir de aquí, solo se ejecuta si accion === "generar_pdf"
+    
+    e.preventDefault(); // Detenemos el envío solo para generar_pdf para usar fetch
+
     const texto = document.getElementById("texto").value;
     const errores = validarAcordes(texto);
     
@@ -827,48 +840,39 @@ form.addEventListener("submit", async function (e) {
     try {
         const resp = await fetch("/", {
             method: "POST",
-            body: formData
+            body: formData,
+            redirect: 'manual' // Clave para manejar el PRG
         });
 
-        const contentType = resp.headers.get("content-type");
+        // 1. Manejo de Redirecciones (PRG): Para errores (status 302 o similar)
+        if (resp.status === 302 || (resp.status >= 300 && resp.status < 400 && resp.headers.get('Location'))) {
+            // Sigue la redirección a la ruta GET, que contiene el alert de error.
+            window.location.href = resp.headers.get('Location') || "/";
+            return;
+        }
 
-        if (contentType && contentType.includes("application/json")) {
-            const data = await resp.json();
-            if (data.error && data.error.includes("sintaxis")) {
-                alert("Error de sintaxis detectado. Por favor, revisa tu texto y vuelve a intentar.");
-                // Limpiar el textarea y recargar la página
-                document.getElementById("texto").value = "";
-                window.location.reload();
-            } else {
-                alert(data.error || "Error de compilación.");
-            }
-        } else {
+        // 2. Manejo de PDF (Acción exitosa)
+        const contentType = resp.headers.get("content-type");
+        if (contentType && contentType.includes("application/pdf")) {
             const blob = await resp.blob();
             const url = window.URL.createObjectURL(blob);
             window.open(url, "_blank");
+            return;
+        } 
+        
+        // 3. Manejo de Errores Inesperados
+        if (contentType && contentType.includes("application/json")) {
+            const data = await resp.json();
+            alert(data.error || "Error de servidor inesperado (JSON).");
+        } else {
+             // Si no es PDF ni redirección ni JSON, forzamos la recarga para ver el error HTML
+             alert("Respuesta inesperada del servidor. Recargando...");
+             window.location.href = "/";
         }
+        
     } catch (err) {
-        alert("Error de conexión con el servidor.");
+        alert("Error de conexión con el servidor o fallo de red: " + err.message);
     }
-});
-
-function insertarTexto(texto) {
-    const textarea = document.getElementById("texto");
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
-
-    textarea.value = value.substring(0, start) + texto + value.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
-    textarea.focus();
-}
-
-document.getElementById("btnInsertB").addEventListener("click", function() {
-    insertarTexto("B");
-});
-
-document.getElementById("btnInsertUnderscore").addEventListener("click", function() {
-    insertarTexto("_");
 });
 </script>
 """
@@ -887,10 +891,7 @@ def descargar():
 def health():
     return "ok", 200
 
-@app.route("/ver_log")
-def ver_log():
-    # No mostrar el log completo al usuario, solo un mensaje de error genérico
-    return jsonify({"error": "Error de sintaxis en el texto ingresado"})
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
