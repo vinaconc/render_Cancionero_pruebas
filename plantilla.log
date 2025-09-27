@@ -1,0 +1,203 @@
+
+--- COMPILACIÓN 1 ---
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.2) (preloaded format=pdflatex.fmt)
+ restricted \write18 enabled.
+entering extended mode
+(cancionero_web.tex
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
+(P:\latex\Miktex\tex/latex/base\book.cls
+Document Class: book 2024/06/29 v1.4n Standard LaTeX document class
+(P:\latex\Miktex\tex/latex/base\bk10.clo))
+(P:\latex\Miktex\tex/latex/base\inputenc.sty)
+(P:\latex\Miktex\tex/generic/babel\babel.sty
+(P:\latex\Miktex\tex/generic/babel\txtbabel.def)
+*************************************
+* Local config file bblopts.cfg used
+*
+(P:\latex\Miktex\tex/latex/arabi\bblopts.cfg)
+(P:\latex\Miktex\tex/latex/babel-spanish\spanish.ldf))
+(P:\latex\Miktex\tex/generic/babel/locale/es\babel-spanish.tex)
+(P:\latex\Miktex\tex/latex/tools\calc.sty)
+(P:\latex\Miktex\tex/latex/changepage\changepage.sty)
+(P:\latex\Miktex\tex/latex/xcolor\xcolor.sty
+(P:\latex\Miktex\tex/latex/graphics-cfg\color.cfg)
+(P:\latex\Miktex\tex/latex/graphics-def\pdftex.def)
+(P:\latex\Miktex\tex/latex/graphics\mathcolor.ltx))
+(P:\latex\Miktex\tex/latex/songs\songs.sty
+(P:\latex\Miktex\tex/generic/iftex\ifpdf.sty
+(P:\latex\Miktex\tex/generic/iftex\iftex.sty))
+(P:\latex\Miktex\tex/latex/graphics\keyval.sty))
+(P:\latex\Miktex\tex/latex/pdfpages\pdfpages.sty
+(P:\latex\Miktex\tex/latex/base\ifthen.sty)
+(P:\latex\Miktex\tex/latex/eso-pic\eso-pic.sty)
+(P:\latex\Miktex\tex/latex/etoolbox\etoolbox.sty)
+(P:\latex\Miktex\tex/latex/graphics\graphicx.sty
+(P:\latex\Miktex\tex/latex/graphics\graphics.sty
+(P:\latex\Miktex\tex/latex/graphics\trig.sty)
+(P:\latex\Miktex\tex/latex/graphics-cfg\graphics.cfg)))
+(P:\latex\Miktex\tex/latex/pdfpages\pppdftex.def))
+(P:\latex\Miktex\tex/latex/ulem\ulem.sty)
+(P:\latex\Miktex\tex/latex/koma-script\scrextend.sty
+(P:\latex\Miktex\tex/latex/koma-script\scrkbase.sty
+(P:\latex\Miktex\tex/latex/koma-script\scrbase.sty
+(P:\latex\Miktex\tex/latex/koma-script\scrlfile.sty
+(P:\latex\Miktex\tex/latex/koma-script\scrlfile-hook.sty
+(P:\latex\Miktex\tex/latex/koma-script\scrlogo.sty))))))
+(P:\latex\Miktex\tex/latex/geometry\geometry.sty
+(P:\latex\Miktex\tex/generic/iftex\ifvtex.sty)
+(P:\latex\Miktex\tex/latex/geometry\geometry.cfg)
+
+Package geometry Warning: Over-specification in `h'-direction.
+    `width' (469.47046pt) is ignored.
+
+
+Package geometry Warning: Over-specification in `v'-direction.
+    `height' (666.36348pt) is ignored.
+
+) (P:\latex\Miktex\tex/latex/imakeidx\imakeidx.sty
+(P:\latex\Miktex\tex/latex/xkeyval\xkeyval.sty
+(P:\latex\Miktex\tex/generic/xkeyval\xkeyval.tex
+(P:\latex\Miktex\tex/generic/xkeyval\xkvutils.tex)))
+(P:\latex\Miktex\tex/generic/iftex\ifxetex.sty)
+(P:\latex\Miktex\tex/generic/iftex\ifluatex.sty)
+(P:\latex\Miktex\tex/latex/tools\multicol.sty))
+Writing index file tema.idx
+Writing index file titleidx.idx
+(P:\latex\Miktex\tex/latex/hyperref\hyperref.sty
+(P:\latex\Miktex\tex/latex/kvsetkeys\kvsetkeys.sty)
+(P:\latex\Miktex\tex/generic/kvdefinekeys\kvdefinekeys.sty)
+(P:\latex\Miktex\tex/generic/pdfescape\pdfescape.sty
+(P:\latex\Miktex\tex/generic/ltxcmds\ltxcmds.sty)
+(P:\latex\Miktex\tex/generic/pdftexcmds\pdftexcmds.sty
+(P:\latex\Miktex\tex/generic/infwarerr\infwarerr.sty)))
+(P:\latex\Miktex\tex/latex/hycolor\hycolor.sty)
+(P:\latex\Miktex\tex/latex/hyperref\nameref.sty
+(P:\latex\Miktex\tex/latex/refcount\refcount.sty)
+(P:\latex\Miktex\tex/generic/gettitlestring\gettitlestring.sty
+(P:\latex\Miktex\tex/latex/kvoptions\kvoptions.sty)))
+(P:\latex\Miktex\tex/generic/stringenc\stringenc.sty)
+(P:\latex\Miktex\tex/latex/hyperref\pd1enc.def)
+(P:\latex\Miktex\tex/generic/intcalc\intcalc.sty)
+(P:\latex\Miktex\tex/latex/hyperref\puenc.def)
+(P:\latex\Miktex\tex/latex/url\url.sty)
+(P:\latex\Miktex\tex/generic/bitset\bitset.sty
+(P:\latex\Miktex\tex/generic/bigintcalc\bigintcalc.sty))
+(P:\latex\Miktex\tex/latex/base\atbegshi-ltx.sty))
+(P:\latex\Miktex\tex/latex/hyperref\hpdftex.def
+(P:\latex\Miktex\tex/latex/base\atveryend-ltx.sty)
+(P:\latex\Miktex\tex/latex/rerunfilecheck\rerunfilecheck.sty
+(P:\latex\Miktex\tex/generic/uniquecounter\uniquecounter.sty)))
+(P:\latex\Miktex\tex/latex/l3backend\l3backend-pdftex.def) (cancionero_web.aux)
+(P:\latex\Miktex\tex/context/base/mkii\supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+) (P:\latex\Miktex\tex/latex/epstopdf-pkg\epstopdf-base.sty
+(P:\latex\Miktex\tex/latex/00miktex\epstopdf-sys.cfg))
+
+LaTeX Font Warning: Font shape `OT1/cmss/m/sl' in size <13.19997> not available
+
+(Font)              size <12> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <13.19997> not available
+(Font)              size <12> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <6.59998> not available
+(Font)              size <7> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <13.19997> not available
+(Font)              size <12> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <6.59998> not available
+(Font)              size <7> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <13.19997> not available
+(Font)              size <12> substituted on input line 120.
+
+
+LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <6.59998> not available
+(Font)              size <7> substituted on input line 120.
+
+(P:\latex\Miktex\tex/latex/pdflscape\pdflscape.sty
+(P:\latex\Miktex\tex/latex/pdflscape\pdflscape-nometadata.sty
+(P:\latex\Miktex\tex/latex/graphics\lscape.sty)))
+*geometry* driver: auto-detecting
+*geometry* detected driver: pdftex
+(cancionero_web.out) (cancionero_web.out)
+
+LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <27.36807> not available
+(Font)              size <24.88> substituted on input line 124.
+
+
+LaTeX Font Warning: Font shape `OT1/cmr/bx/n' in size <27.36807> not available
+(Font)              size <24.88> substituted on input line 124.
+
+(cancionero_web.toc
+
+LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <5.5> not available
+(Font)              size <5> substituted on input line 3.
+
+
+LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <5.5> not available
+(Font)              size <5> substituted on input line 3.
+
+
+LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <5.5> not available
+(Font)              size <5> substituted on input line 3.
+
+)
+[1{C:/Users/vinac/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}]
+
+LaTeX Font Warning: Font shape `OT1/cmss/bx/n' in size <19.00797> not available
+
+(Font)              size <17.28> substituted on input line 136.
+
+! You can't use `macro parameter character #' in horizontal mode.
+<argument> ... \@tempdima \@parboxrestore a rd f##
+                                                   d e \\Gloria a Dios en el...
+l.143 ...ue \[Sim/Re]a\[Mi7]ma el Se\[La]Ã±or. \\}
+                                                  
+
+Underfull \hbox (badness 10000) in paragraph at lines 143--143
+
+
+Overfull \hbox (8.5279pt too wide) in paragraph at lines 143--143
+ []  
+
+LaTeX Font Warning: Font shape `OT1/cmss/m/sl' in size <15.84003> not available
+
+(Font)              size <17.28> substituted on input line 170.
+
+
+LaTeX Font Warning: Font shape `OT1/cmr/m/sl' in size <5.5> not available
+(Font)              size <5> substituted on input line 170.
+
+
+LaTeX Font Warning: Font shape `OT1/cmr/bx/n' in size <5.5> not available
+(Font)              size <5> substituted on input line 170.
+
+
+[1] (titleidx.ind) (cancionero_web.sxc)
+[2] (cancionero_web.aux)
+
+LaTeX Font Warning: Size substitutions with differences
+(Font)              up to 2.48807pt have occurred.
+
+ )
+(see the transcript file for additional information)<P:/latex/Miktex/fonts/type
+1/public/amsfonts/cm/cmbx10.pfb><P:/latex/Miktex/fonts/type1/public/amsfonts/cm
+/cmbx12.pfb><P:/latex/Miktex/fonts/type1/public/amsfonts/cm/cmr10.pfb><P:/latex
+/Miktex/fonts/type1/public/amsfonts/cm/cmssbx10.pfb><P:/latex/Miktex/fonts/type
+1/public/amsfonts/cm/cmssi17.pfb>
+Output written on cancionero_web.pdf (3 pages, 69939 bytes).
+Transcript written on cancionero_web.log.
+This is makeindex, version 2.16 [MiKTeX 25.2].
+Scanning input file titleidx.idx....done (1 entries accepted, 0 rejected).
+Sorting entries...done (0 comparisons).
+Generating output file titleidx.ind....done (5 lines written, 0 warnings).
+Output written in titleidx.ind.
+Transcript written in titleidx.ilg.

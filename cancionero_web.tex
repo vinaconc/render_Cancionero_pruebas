@@ -1,0 +1,178 @@
+\documentclass[a4paper,twoside,openany]{book}
+
+% --- Configuración de codificación y idioma ---
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{calc}
+\usepackage{changepage}
+
+% --- Paquetes generales ---
+\usepackage{xcolor} % Necesario para \textcolor.
+\usepackage[chorded]{songs} % Esencial para tu cancionero.
+
+% --- Paquetes adicionales ---
+\usepackage{pdfpages} % Para incluir PDFs como la portada.
+\usepackage[normalem]{ulem} % Para subrayado, si lo usas (ej. \uline).
+\usepackage{scrextend} % Necesario si usas \changefontsizes.
+
+% --- Configuración de geometría de la página ---
+\usepackage[a4paper,
+            top=1cm, 
+            bottom=2cm, 
+            left=2.5cm, 
+            right=1cm, 
+            headheight=1.5cm,
+            headsep=1cm,
+            footskip=1.5cm,
+            textwidth=16.5cm,
+            textheight=23.42cm,
+            showframe=false
+            ]{geometry}
+
+% --- Configuración de índices ---
+\usepackage{imakeidx}
+\makeindex[name=tema, title=Índice Temático]
+
+\makeindex[name=titleidx, title=Índice Alfabético de Canciones, columns=1] 
+
+\newindex{titleidx}{cbtitle} 
+
+\newcommand{\indexsongtitle}[1]{%
+  \phantomsection
+  \index[titleidx]{#1}%
+
+}
+
+% --- Configuración de hipervínculos ---
+\usepackage{hyperref} 
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=green,
+    urlcolor=cyan,
+    filecolor=magenta,
+    pdftitle={Mi Cancionero Temático},
+    pdfauthor={Tu Nombre},
+    pdfcreator={LaTeX with hyperref},
+    pdfproducer={LaTeX},
+    linktocpage=true
+}
+
+% --- Configuración de fuentes ---
+\changefontsizes[14pt]{11pt} 
+
+% --- Configuraciones específicas del paquete 'songs' ---
+\noversenumbers
+\baselineadj=-10pt plus 10pt minus 10pt
+\renewcommand{\clineparams}{
+  \baselineskip=35pt
+  \lineskiplimit=35pt
+  \lineskip=1pt
+}
+
+% --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
+% Implementación básica del comando \diagram usando solo comandos estándar
+\newcommand\diagram[2]{%
+  \noindent
+  \fbox{\parbox{2cm}{\centering \textbf{#1}}} \hspace{0.5cm} 
+  \fbox{\parbox{8cm}{#2}}
+  \par\vspace{0.5cm}
+}
+
+% Comando esquema alternativo
+\newcommand\esquema[2]{%
+  \noindent
+  \fbox{\parbox{2cm}{\centering \textbf{#1}}} \hspace{0.5cm} 
+  \fbox{\parbox{13.5cm}{#2}}
+  \par\vspace{0.5cm}
+}
+
+% --- Resto de comandos personalizados ---
+\newcommand{\version}{}
+\newsongkey{v}{\def\version{}}
+               {\def\version{Versión: #1\par}}
+
+\newcommand\toctitle{}
+\makeatletter
+\gdef\toclink{%
+  \@ifundefined{href}{}{%
+    song\theSB@songsnum-\thesongnum.\ifnum\value{section}=0 1\else2\fi%
+  }%
+}
+\makeatother
+
+%indice de secciones
+\newcommand\addtotoc[1]{\addtocontents{toc}{\protect\contentsline
+ {\ifnum\value{section}>0sub\fi section}%
+{\numberline\thesongnum#1}%
+ {\thepage}%
+ {\toclink}%
+}}
+\newsongkey{toc}
+{\def\toctitle{\resettitles\addtotoc\songtitle}}
+{\def\toctitle{\addtotoc{#1}}}
+\renewcommand{\extendprelude}{\showrefs\showauthors\toctitle {\bfseries\version}}
+
+\newcommand{\indexword}[1]{\textcolor{blue}{#1}\index{#1}}
+
+\let\cleardoublepage\relax
+
+\begin{document}
+
+\frontmatter % Inicia la sección preliminar (numeración romana por defecto, si aplica)
+
+\tableofcontents{\thispagestyle{empty}} % El índice también sin número de página
+\clearpage % Mueve a la siguiente página
+
+\mainmatter % Inicia la sección principal (reinicia la numeración a 1, arábiga)
+\pagestyle{plain} % Establece el estilo de página para el cuerpo principal.
+
+\renewcommand{\indexname}{Índice Temático}
+\renewcommand{\everychorus}{\textnote{CORO:}}
+\renewcommand{\chorusfont}{\it}
+\renewcommand{\printchord}[1]{\rmfamily\bf#1}
+
+% --- INICIO CANCIONERO ---
+\songchapter{Gloria}
+\begin{songs}{titleidx}
+\beginsong{Gloria Tradicional}
+\index[titleidx]{Gloria Tradicional}
+\phantomsection
+\label{cancion-Gloria-Tradicional}
+\beginverse
+\diagram{A}{\[La]Glo\[Re]ria a \[fa\#]Dios \[Re]en el \[Mi]Cielo, \\\[Re]y \[Mi]en la \[La]Tie\[fa\#]rra \[Re]Paz \[Sim]a los \[La]Hom\[fa\#]bres que \[Sim/Re]a\[Mi7]ma el Se\[La]ñor. \\}
+\endverse
+\beginverse
+\begin{minipage}[t]{0.4\textwidth}
+\vspace{-2.5em}
+\centering
+Por tu inmensa Gloria te alabamos;\\
+Te bendecimos, Te adoramos;\\
+Te glorificamos; Te damos gracias,\\
+Señor Dios, Rey celestial.\\
+Dios Padre Todopoderoso.\\
+Señor, Hijo único, Jesucristo;\\
+Señor Dios, Cordero de Dios,\\
+Hijo del Padre;\\
+Tú que quitas el pecado del mundo,\\
+ten piedad de nosotros;\\
+Tú que quitas el pecado del mundo,\\
+atiende nuestra súplica;\\
+Tú que estás sentado a la derecha del Padre,\\
+ten piedad de nosotros;\\
+porque sólo Tú eres Santo;\\
+sólo Tú Señor, sólo Tú Altísimo, Jesucristo;\\
+con el Espíritu Santo,\\
+en la Gloria de Dios Padre. Amén.\\
+\vspace{-1em}
+\end{minipage}
+\endverse
+\endsong
+\end{songs}
+
+
+% --- FIN CANCIONERO ---
+
+\printindex[titleidx]
+\end{document}
+

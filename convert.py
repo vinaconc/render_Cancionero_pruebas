@@ -671,7 +671,7 @@ def compilar_tex_seguro(tex_path):
         with open(os.path.join(tex_dir, "plantilla.log"), "w", encoding="utf-8") as f:
             f.write(logs)
         # Lanzar error genérico
-        raise RuntimeError("Error de sintaxis en el archivo LaTeX.")
+        raise RuntimeError("Error de sintaxis en el texto ingresado")
 @app.route("/", methods=["GET", "POST"])
 def index():
     texto = ""
@@ -727,17 +727,23 @@ def index():
                         if os.path.exists(pdf_file):
                             return send_file(pdf_file, as_attachment=False)
                         else:
-                            return jsonify({"error": "Error de sintaxis"})
-                    except Exception:
-                        return jsonify({"error": "Error de sintaxis"})
+                            return jsonify({"error": "Error de sintaxis en el texto ingresado"})
+                    except Exception as e:
+                        # Asegurar que no se muestre el traceback al usuario
+                        app.logger.error(f"Error en compilación PDF: {str(e)}")
+                        return jsonify({"error": "Error de sintaxis en el texto ingresado"})
 
-                except Exception:
-                    return jsonify({"error": "Error de sintaxis"})
+                except Exception as e:
+                    # Asegurar que no se muestre el traceback al usuario
+                    app.logger.error(f"Error en procesamiento: {str(e)}")
+                    return jsonify({"error": "Error de sintaxis en el texto ingresado"})
 
         # GET inicial
         return render_template_string(FORM_HTML, texto=texto)
 
-    except Exception:
+    except Exception as e:
+        # Asegurar que no se muestre el traceback al usuario
+        app.logger.error(f"Error general: {str(e)}")
         return jsonify({"error": "Error inesperado en el servidor."})
 
 
@@ -760,8 +766,62 @@ FORM_HTML = """
 <script>
 const form = document.getElementById("formulario");
 
+// Función para validar acordes
+function validarAcordes(texto) {
+    const lineas = texto.split('\n');
+    const errores = [];
+    
+    for (let i = 0; i < lineas.length; i++) {
+        const linea = lineas[i].trim();
+        
+        // Saltar líneas vacías, títulos, marcadores, etc.
+        if (!linea || linea.startsWith('S ') || linea.startsWith('O ') || 
+            ['V', 'C', 'M', 'N'].includes(linea) || linea.startsWith('ref=') ||
+            linea.match(/^[A-Z\s]+$/) || linea.includes('_')) {
+            continue;
+        }
+        
+        const tokens = linea.split(/\s+/);
+        let tieneAcordesValidos = false;
+        let tieneTokensInvalidos = false;
+        const tokensInvalidos = [];
+        
+        for (const token of tokens) {
+            // Verificar si es un acorde válido en notación americana
+            const acordeAmericano = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(\/[A-G][#b]?)?$/i;
+            // Verificar si es un acorde válido en notación latina
+            const notasLatinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si', 'reb', 'mib', 'lab', 'sib', 'do#', 're#', 'fa#', 'sol#', 'la#'];
+            const acordeLatino = notasLatinas.some(nota => token.toLowerCase().startsWith(nota.toLowerCase()));
+            
+            if (acordeAmericano.test(token) || acordeLatino) {
+                tieneAcordesValidos = true;
+            } else {
+                tieneTokensInvalidos = true;
+                tokensInvalidos.push(token);
+            }
+        }
+        
+        // Si la línea tiene acordes válidos pero también tokens inválidos, es un error
+        if (tieneAcordesValidos && tieneTokensInvalidos) {
+            errores.push(`Línea ${i + 1}: Acordes inválidos: ${tokensInvalidos.join(', ')}. Use acordes válidos como: C, D, E, F, G, A, B, Do, Re, Mi, Fa, Sol, La, Si, etc.`);
+        }
+    }
+    
+    return errores;
+}
+
 form.addEventListener("submit", async function (e) {
     e.preventDefault(); // no recargar página
+    
+    // Validar sintaxis antes de enviar
+    const texto = document.getElementById("texto").value;
+    const errores = validarAcordes(texto);
+    
+    if (errores.length > 0) {
+        alert("Error de sintaxis detectado:\n\n" + errores.join("\n") + "\n\nPor favor, corrige los errores y vuelve a intentar.");
+        return;
+    }
+    
     const formData = new FormData(form);
 
     try {
@@ -774,7 +834,14 @@ form.addEventListener("submit", async function (e) {
 
         if (contentType && contentType.includes("application/json")) {
             const data = await resp.json();
-            alert(data.error || "Error de compilación.");
+            if (data.error && data.error.includes("sintaxis")) {
+                alert("Error de sintaxis detectado. Por favor, revisa tu texto y vuelve a intentar.");
+                // Limpiar el textarea y recargar la página
+                document.getElementById("texto").value = "";
+                window.location.reload();
+            } else {
+                alert(data.error || "Error de compilación.");
+            }
         } else {
             const blob = await resp.blob();
             const url = window.URL.createObjectURL(blob);
@@ -823,10 +890,9 @@ def health():
 @app.route("/ver_log")
 def ver_log():
     # No mostrar el log completo al usuario, solo un mensaje de error genérico
-    return jsonify({"error": "Error de sintaxis"})
+    return jsonify({"error": "Error de sintaxis en el texto ingresado"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
-
 
