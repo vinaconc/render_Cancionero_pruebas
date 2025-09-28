@@ -756,6 +756,11 @@ def index():
 # 🔹 HTML con menú y botón PDF
 FORM_HTML = """
 <h2>Creador Cancionero</h2>
+{% if error %}
+    <div style="color: red; font-weight: bold; margin-bottom: 1em;">
+        {{ error.replace('\n', '<br>')|safe }}
+    </div>
+{% endif %}
 <form id="formulario" method="post" enctype="multipart/form-data">
     <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
     <button type="button" id="btnInsertB">Repit</button>
@@ -896,4 +901,5 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+
 
