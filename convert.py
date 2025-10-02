@@ -1,10 +1,13 @@
-from flask import session, Flask, request, jsonify, send_file, render_template_string, Response, redirect, url_for
+from flask import session, Flask, request, after_this_request, jsonify, send_file, render_template_string, Response, redirect, url_for
 import traceback
 import os
 import subprocess
 import re
 import unicodedata
-
+import uuid
+import time
+import io
+import tempfile
 
 
 app = Flask(__name__)
@@ -627,8 +630,18 @@ def compilar_tex_seguro(tex_path):
     """
     tex_dir = os.path.dirname(tex_path) or "."
     tex_file = os.path.basename(tex_path)
+    base_name = os.path.splitext(tex_file)[0]
     logs = ""
-
+    AUX_FILES = ['.aux', '.log', '.out', '.toc', '.lof', '.lot', '.tema.ind', '.tema.idx', '.cbtitle', '.cbtitle.ind', '.fls', '.synctex.gz']
+    def cleanup_aux_files():
+        """Elimina todos los archivos auxiliares generados por LaTeX y makeindex."""
+        for ext in AUX_FILES:
+            aux_file = os.path.join(tex_dir, base_name + ext)
+            if os.path.exists(aux_file):
+                try:
+                    os.remove(aux_file)
+                except Exception as e:
+                    app.logger.warning(f"No se pudo borrar el archivo auxiliar {aux_file}: {e}")
     try:
         # Primera pasada
         result = subprocess.run(
@@ -668,12 +681,15 @@ def compilar_tex_seguro(tex_path):
         return True
 
     except Exception as e:
-        # Guardar log completo en archivo (para que puedas revisarlo manualmente)
-        with open(os.path.join(tex_dir, "plantilla.log"), "w", encoding="utf-8") as f:
+        log_path = os.path.join(tex_dir, f"{base_name}.log")
+        with open(log_path, "w", encoding="utf-8") as f:
             f.write(logs)
-        # Lanzar error genérico
-        raise RuntimeError("Error de sintaxis en el texto ingresado")
-
+        with open(log_path, "r", encoding="utf-8") as f:
+            error_log = f.read()
+        raise RuntimeError(f"Error de sintaxis en el texto ingresado\nDetalles del log:\n{error_log}")
+    finally:
+        # **LIMPIEZA CRÍTICA:** Se ejecuta siempre, haya éxito o error.
+        cleanup_aux_files()
 @app.route("/", methods=["GET", "POST"])
 def index():
     # 1. Recuperar el 'error' y el 'texto' de la sesión y LIMPIAR el error
@@ -753,6 +769,26 @@ def index():
 
     # GET inicial o POST con error redirigido.
     return render_template_string(FORM_HTML, texto=texto, error=error)
+
+@app.route("/api/generar_pdf", methods=["POST"])
+def api_generar_pdf():
+    try:
+        texto = request.data.decode("utf-8")  # Recibe el cuerpo de la petición como texto plano
+
+        # Aquí llamas a la función que procesa 'texto' y genera el PDF
+        # Ejemplo:
+        compilar_tex_seguro(texto)  # Función que crea .tex y compila .pdf
+
+        pdf_file = "archivo_generado.pdf"  # Ruta al PDF generado
+
+        if os.path.exists(pdf_file):
+            return send_file(pdf_file, as_attachment=False, mimetype="application/pdf")
+        else:
+            return "No se generó el PDF", 500
+
+    except Exception as e:
+        app.logger.error(f"Error en api_generar_pdf: {str(e)}")
+        return f"Error procesando texto: {str(e)}", 500
 # 🔹 HTML con menú y botón PDF
 FORM_HTML = """
 <h2>Creador Cancionero</h2>
@@ -892,14 +928,76 @@ def descargar():
         headers={"Content-Disposition": f"attachment;filename={nombre_archivo}"}
     )
 
-@app.route("/health", methods=["GET"])
-def health():
-    return "ok", 200
+@app.route("/get/pdf/", methods=["POST"])
+def get_pdf():
+    try:
+        texto = request.data.decode("utf-8")
+        contenido_canciones = convertir_songpro(texto)
+        indice_tematica = generar_indice_tematica()
 
+        def reemplazar(match):
+            """Función para reemplazar el marcador en la plantilla LaTeX."""
+            return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+
+        nuevo_tex = re.sub(
+            r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+            reemplazar,
+            plantilla,
+            flags=re.S
+        )
+
+        # 1. Generar un UUID para un nombre de archivo único
+        unique_id = str(uuid.uuid4())
+        base_filename = f"cancionero_{unique_id}"
+
+        with tempfile.TemporaryDirectory(dir=directorio_pdfs) as temp_dir:
+            
+            # 2. Usar el UUID para construir los nombres de los archivos
+            archivo_salida_unico = os.path.join(temp_dir, f"{base_filename}.tex")
+            pdf_file = os.path.join(temp_dir, f"{base_filename}.pdf")
+
+            app.logger.info(f"Generando archivo único interno: {archivo_salida_unico}")
+
+            with open(archivo_salida_unico, "w", encoding="utf-8") as f:
+                f.write(nuevo_tex)
+
+            # Compilar el archivo .tex
+            compilar_tex_seguro(archivo_salida_unico)
+
+            if os.path.exists(pdf_file):
+
+                with open(pdf_file, "rb") as f:
+                    pdf_data = f.read()
+
+                # El borrado se maneja automáticamente por tempfile.TemporaryDirectory
+                # al salir del bloque 'with'.
+
+                # IMPORTANTE: resetear el puntero antes de enviar
+                buffer = io.BytesIO(pdf_data)
+                buffer.seek(0)
+
+                # Se mantiene el nombre de descarga simple para el usuario final
+                return send_file(
+                    buffer,
+                    as_attachment=False,
+                    mimetype="application/pdf",
+                    download_name="cancionero.pdf"
+                )
+
+            else:
+                return jsonify({"error": "No se generó el PDF"}), 500
+
+    except RuntimeError as e:
+        # Captura errores específicos de compilación lanzados por compilar_tex_seguro
+        app.logger.error(f"Error de compilación capturado: {e}")
+        return jsonify({"error": str(e)}), 500
+	
+    except Exception as e:
+        app.logger.error(f"Error no manejado en /get/pdf: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
-
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
 
