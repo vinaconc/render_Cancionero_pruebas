@@ -763,7 +763,7 @@ def index():
                 session['error'] = "Error de sintaxis en el texto ingresado."
             
             # Si hubo error (o no se envió el PDF), redirigir para mostrar el alert.
-			session.pop('texto_guardado', None)
+            session.pop('texto_guardado', None)
             return redirect(url_for('index'))
         
         # Si la acción NO es 'abrir' ni 'generar_pdf' (p. ej., un POST sin acción o descargar)
@@ -1003,6 +1003,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
