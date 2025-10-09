@@ -9,6 +9,7 @@ RUN apt-get update && \
         texlive-latex-recommended \
         texlive-latex-extra \
         texlive-fonts-recommended \
+        texlive-music \
         latexmk \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,3 +28,4 @@ EXPOSE 8000
 
 # Comando por defecto: Gunicorn con menos workers/threads
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "2", "--timeout", "120", "convert:app"]
+
