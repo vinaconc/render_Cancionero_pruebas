@@ -20,7 +20,8 @@ COPY convert.py plantilla.tex /app/
 # Crear carpeta para PDFs con permisos
 RUN mkdir -p /app/pdfs && chmod 777 /app/pdfs
 
-EXPOSE 8000
+EXPOSE 8001
 
 # Ejecutar Gunicorn usando el entorno virtual
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "2", "--timeout", "120", "convert:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "1", "--threads", "2", "--timeout", "120", "convert:app"]
+
