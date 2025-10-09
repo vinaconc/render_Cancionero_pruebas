@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar LaTeX con paquetes esenciales y el paquete canción
+# Instalar LaTeX con paquetes esenciales y texlive-music que incluye songs
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         texlive-latex-recommended \
@@ -19,14 +19,13 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el código fuente y archivos LaTeX necesarios
-# Asegúrate de tener songs.sty en la raíz o ajustar aquí
-COPY convert.py plantilla.tex songs.sty /app/
+# Copiar el código fuente y la plantilla
+COPY convert.py plantilla.tex /app/
 
 # Crear directorio para PDFs con permisos de escritura
 RUN mkdir -p /app/pdfs && chmod 777 /app/pdfs
 
 EXPOSE 8000
 
-# Usar Gunicorn con configuración conservadora para no saturar CPU
+# Ejecutar Gunicorn con configuración ligera para no saturar CPU
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "2", "--timeout", "120", "convert:app"]
