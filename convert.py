@@ -727,6 +727,7 @@ def index():
         elif accion == "generar_pdf": # <<-- Usar 'elif' para aislar el bloque
             try:
                 # [Asumiendo que estas funciones y variables están definidas globalmente]
+                indice_tematica_global.clear()
                 contenido_canciones = convertir_songpro(texto)
                 indice_tematica = generar_indice_tematica()
 
@@ -1003,6 +1004,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
