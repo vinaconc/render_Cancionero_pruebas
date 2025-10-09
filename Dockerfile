@@ -23,5 +23,6 @@ RUN mkdir -p /app/pdfs && chmod 777 /app/pdfs
 EXPOSE 8001
 
 # Ejecutar Gunicorn usando el entorno virtual
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "1", "--threads", "2", "--timeout", "120", "convert:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "2", "--threads", "4", "--timeout", "180", "convert:app"]
+
 
