@@ -1,4 +1,4 @@
-FROM blang/latex:ubuntu
+FROM mfisherman/texlive-minimal
 # Instalar paquetes LaTeX necesarios para el documento
 RUN tlmgr install \
     collection-latexrecommended \
@@ -28,4 +28,5 @@ RUN mkdir -p /app/pdfs && chmod 777 /app/pdfs
 EXPOSE 8001
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "2", "--threads", "4", "--timeout", "180", "convert:app"]
+
 
