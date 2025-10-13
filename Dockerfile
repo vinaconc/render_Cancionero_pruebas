@@ -7,6 +7,7 @@ RUN apt-get update && \
     texlive-latex-recommended \
     texlive-lang-spanish \
     texlive-latex-extra \
+    texlive-songs \
     latexmk \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,3 +22,4 @@ COPY convert.py plantilla.tex /app/
 EXPOSE 8000
 
 CMD ["bash", "-c", "latexmk -pdf -interaction=nonstopmode plantilla.tex && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 180 convert:app"]
+
