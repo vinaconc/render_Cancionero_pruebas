@@ -2,7 +2,7 @@
 # Esta etapa instala TeX Live y los paquetes necesarios.
 # Se hace en una etapa separada para que la imagen final sea más pequeña,
 # ya que solo copia los archivos de TeX Live compilados y no las herramientas de construcción.
-FROM texlive/texlive:basic AS texlive-build
+FROM mfisherman/texlive-minimal
 
 # Instala paquetes adicionales de TeX Live usando tlmgr.
 # Se recomienda instalar todos los paquetes en una sola capa 'RUN'
@@ -84,4 +84,5 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "convert:app"]
 
 # Si solo quieres ejecutar Flask en modo desarrollo (NO RECOMENDADO PARA PRODUCCIÓN):
 # CMD ["python", "convert.py"]
+
 
