@@ -50,7 +50,7 @@ RUN tlmgr update --self && \
 
 # -- Segunda etapa: Construcción de la imagen final de la aplicación Flask --
 # Aquí usamos una imagen base de Python más ligera para nuestra aplicación Flask.
-FROM python:3.9-slim-buster
+FROM python:3.11-slim
 
 # Establece variables de entorno para que Python no escriba archivos .pyc
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -84,6 +84,7 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "convert:app"]
 
 # Si solo quieres ejecutar Flask en modo desarrollo (NO RECOMENDADO PARA PRODUCCIÓN):
 # CMD ["python", "convert.py"]
+
 
 
 
