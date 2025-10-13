@@ -60,7 +60,8 @@ ENV PYTHONUNBUFFERED 1
 # Esto hace que la imagen final sea más pequeña al no incluir todas las herramientas de tlmgr, etc.
 # Asegúrate de que esta ruta '/usr/local/texlive' es la correcta para tu versión de texlive/texlive:basic
 COPY --from=texlive-build /usr/local/texlive /usr/local/texlive
-ENV PATH="/usr/local/texlive/2023/bin/x86_64-linux:${PATH}" # Ajusta el año si es diferente (e.g., 2024)
+ENV PATH="/usr/local/texlive/2023/bin/x86_64-linux:${PATH}" 
+# Ajusta el año si es diferente (e.g., 2024)
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
@@ -83,3 +84,4 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "convert:app"]
 
 # Si solo quieres ejecutar Flask en modo desarrollo (NO RECOMENDADO PARA PRODUCCIÓN):
 # CMD ["python", "convert.py"]
+
