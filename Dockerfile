@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 'latexmk' es crucial para compilar el documento en múltiples pasadas.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        texlive-full \
+        texlive-latex-recommended \
         latexmk \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,6 +28,7 @@ EXPOSE 8000
 # Comando por defecto: usar gunicorn enlazado a $PORT
 # convert:app es el módulo:objeto WSGI
 CMD ["bash", "-c", "latexmk -pdf -interaction=nonstopmode plantilla.tex && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 180 convert:app"]
+
 
 
 
