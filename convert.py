@@ -202,7 +202,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 				if i > 0 and idx_acorde < len(acordes):
 					acorde_convertido = convertir_a_latex(acordes[idx_acorde])
 					# Escapar sostenidos en acordes para LaTeX
-					acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
+					acorde_escapado = acorde_convertido.replace('#', '\\#')
 					latex += f"\\[{acorde_escapado}]"
 					idx_acorde += 1
 				latex += parte
@@ -1006,6 +1006,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
