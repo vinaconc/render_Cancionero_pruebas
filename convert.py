@@ -173,6 +173,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 	resultado = ''
 	idx_acorde = 0
 	palabras = linea.strip().split()
+	notas_americanas_simples = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
 	for palabra in palabras:
 		es_indexada = palabra.startswith(simbolo)
@@ -219,6 +220,9 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 				resultado += latex + ' '
 		else:
 			# Palabra sin acorde embebido
+			palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
+			if base.upper() in notas_americanas_simples:
+				base = convertir_a_latex(base.upper())
 			palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
 			if es_indexada:
 				if palabra_para_indice not in indice_tematica_global:
@@ -1004,6 +1008,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
