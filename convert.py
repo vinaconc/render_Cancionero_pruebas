@@ -200,6 +200,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 			latex = ''
 			for i, parte in enumerate(partes):
 				if i > 0 and idx_acorde < len(acordes):
+					acorde_convertido = convertir_a_latex(acordes[idx_acorde])
 					# Escapar sostenidos en acordes para LaTeX
 					acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
 					latex += f"\\[{acorde_escapado}]"
@@ -220,9 +221,6 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 				resultado += latex + ' '
 		else:
 			# Palabra sin acorde embebido
-			palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
-			if base.upper() in notas_americanas_simples:
-				base = convertir_a_latex(base.upper())
 			palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
 			if es_indexada:
 				if palabra_para_indice not in indice_tematica_global:
@@ -1008,6 +1006,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
