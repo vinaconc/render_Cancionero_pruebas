@@ -1,4 +1,5 @@
 from flask import session, Flask, request, after_this_request, jsonify, send_file, render_template_string, Response, redirect, url_for
+from flask_cors import CORS
 import traceback
 import os
 import subprocess
@@ -11,6 +12,9 @@ import tempfile
 
 
 app = Flask(__name__)
+CORS(app, resources={
+    r"/get/pdf/": {"origins": ["https://vinaconc.cl"]}
+})
 app.secret_key = 'Quique04#'
 app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
@@ -1006,6 +1010,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
