@@ -338,6 +338,13 @@ def convertir_songpro(texto):
         if skip_mode:
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 skip_mode = False
+			i += 1
+            continue
+			    if linea == 'N':
+                   cerrar_bloque()
+                   skip_mode = True
+                   i += 1
+                   continue
                 if linea == 'V':
                     cerrar_bloque()
                     tipo_bloque = 'verse'
@@ -861,6 +868,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
