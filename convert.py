@@ -334,41 +334,10 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # BLOQUE SKIP_MODE - 100% ESPACIOS
+        # ✅ SKIP_MODE SIMPLE Y PERFECTO
         if skip_mode:
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 skip_mode = False
-			i += 1
-            continue
-			    if linea == 'N':
-                   cerrar_bloque()
-                   skip_mode = True
-                   i += 1
-                   continue
-                if linea == 'V':
-                    cerrar_bloque()
-                    tipo_bloque = 'verse'
-                elif linea == 'C':
-                    if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
-                        cerrar_bloque()
-                        tipo_bloque = 'chorus'
-                elif linea == 'M':
-                    cerrar_bloque()
-                    tipo_bloque = 'melody'
-                elif linea == 'O':
-                    cerrar_bloque()
-                    cerrar_cancion()
-                    titulo_cancion_actual = ""
-                    resultado.append(r'\beginsong{}')
-                    cancion_abierta = True
-                elif linea == 'S':
-                    cerrar_bloque()
-                    cerrar_cancion()
-                    if seccion_abierta:
-                        resultado.append(r'\end{songs}')
-                    seccion_abierta = True
-                    resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
-                    resultado.append(r'\begin{songs}{titleidx}')
             i += 1
             continue
 
@@ -397,6 +366,27 @@ def convertir_songpro(texto):
             resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
             resultado.append(r'\phantomsection')
             resultado.append(rf'\label{{{etiqueta}}}')
+            cancion_abierta = True
+            i += 1
+            continue
+
+        if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
+            cerrar_bloque()
+            cerrar_cancion()
+            titulo_cancion_actual = linea.title()
+            etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+            resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+            resultado.append(r'\phantomsection')
+            resultado.append(rf'\label{{{etiqueta}}}')
+            cancion_abierta = True
+            i += 1
+            continue
+
+        if linea == 'O':
+            cerrar_bloque()
+            cerrar_cancion()
+            titulo_cancion_actual = ""
+            resultado.append(r'\beginsong{}')
             cancion_abierta = True
             i += 1
             continue
@@ -430,6 +420,86 @@ def convertir_songpro(texto):
                 i += 1
                 continue
 
+        # PROCESAMIENTO ACORDES + LETRAS
+        if i + 1 < len(lineas) and es_linea_acordes(lineas[i]):
+            acordes_originales = lineas[i].strip().split()
+            acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
+            letras_raw = lineas[i + 1].strip()
+            if letras_raw.startswith("//") and letras_raw.endswith("//"):
+                letras_raw = letras_raw[2:-2].strip()
+
+            rep_ini = letras_raw.startswith('B ')
+            if rep_ini:
+                letras_raw = letras_raw[2:].lstrip()
+            rep_fin = False
+            repeticiones = 2
+
+            m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
+            if m_fin:
+                rep_fin = True
+                repeticiones = int(m_fin.group(1))
+                letras_raw = letras_raw[:m_fin.start()].rstrip()
+            elif letras_raw.endswith(' B'):
+                rep_fin = True
+                letras_raw = letras_raw[:-2].rstrip()
+
+            if letras_raw == '_':
+                cerrar_bloque()
+                resultado.append(f"\\textnote{{{acordes[0]}}}")
+                i += 2
+                continue
+
+            if not ('_' in letras_raw or '#' in letras_raw):
+                acordes_escapados = [a.replace('#', '\\#') for a in acordes]
+                bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')
+                bloque_actual.append(letras_raw)
+                i += 2
+                continue
+
+            linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+            if rep_ini and rep_fin:
+                linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+            elif rep_ini:
+                linea_convertida = r'\lrep ' + linea_convertida
+            elif rep_fin:
+                linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
+            bloque_actual.append(linea_convertida)
+            i += 2
+            continue
+
+        # LÍNEAS NORMALES DE LETRA
+        if tipo_bloque and not es_linea_acordes(linea):
+            rep_ini = linea.startswith('B ')
+            if rep_ini:
+                linea = linea[2:].lstrip()
+
+            rep_fin = False
+            repeticiones = 2
+            m_fin = re.search(r'\s+[Bb]=(\d+)$', linea)
+            if m_fin:
+                rep_fin = True
+                repeticiones = int(m_fin.group(1))
+                linea = linea[:m_fin.start()].rstrip()
+            elif linea.endswith(' B') or linea.endswith(' b'):
+                rep_fin = True
+                linea = linea[:-2].rstrip()
+
+            if '_' in linea or '#' in linea:
+                linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
+            else:
+                linea_procesada = linea
+
+            if rep_ini and rep_fin:
+                linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+            elif rep_ini:
+                linea_procesada = r'\lrep ' + linea_procesada
+            elif rep_fin:
+                linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
+
+            bloque_actual.append(linea_procesada)
+            i += 1
+            continue
+
         i += 1
 
     cerrar_bloque()
@@ -438,6 +508,7 @@ def convertir_songpro(texto):
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+
 
 
 def normalizar(palabra):
@@ -868,6 +939,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
