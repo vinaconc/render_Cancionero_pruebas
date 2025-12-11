@@ -251,6 +251,7 @@ def convertir_songpro(texto):
 	cancion_abierta = False
 	titulo_cancion_actual = ""
 	transposicion = 0
+	skip_mode = False
 
 	def entorno(tb):
 		if tb == 'verse':
@@ -263,34 +264,23 @@ def convertir_songpro(texto):
 	def cerrar_bloque():
 		nonlocal bloque_actual, tipo_bloque
 		if bloque_actual:
-			if tipo_bloque == 'nodiagram':
-				resultado.append(r'\beginverse')
-				resultado.append(r'\begin{minipage}[t]{0.4\textwidth}')
-				resultado.append(r'\vspace{-2.5em}')  # reduce espacio arriba
-				resultado.append(r'\centering')
-				resultado.append(procesar_bloque_simple('\n'.join(bloque_actual), transposicion, es_seccion_n=True))
-				resultado.append(r'\vspace{-1em}')  # reduce espacio abajo
-				resultado.append(r'\end{minipage}')
-				resultado.append(r'\endverse')
-
-			else:
-				begin, end = entorno(tipo_bloque)
+			begin, end = entorno(tipo_bloque)
 				# Asignar letra según el tipo de bloque: A para estrofa, B para coro, C para melodía
-				if tipo_bloque == 'verse':
-					letra_diagrama = 'A'
-				elif tipo_bloque == 'chorus':
-					letra_diagrama = 'B'
-				elif tipo_bloque == 'melody':
-					letra_diagrama = 'C'
-				else:
-					letra_diagrama = 'A'  # Por defecto
+			if tipo_bloque == 'verse':
+				letra_diagrama = 'A'
+			elif tipo_bloque == 'chorus':
+				letra_diagrama = 'B'
+			elif tipo_bloque == 'melody':
+				letra_diagrama = 'C'
+			else:
+				letra_diagrama = 'A'  # Por defecto
 				# No reemplazar # en contenido, ya que los acordes ya tienen el escape necesario
-				contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
-				contenido = contenido.replace('"', '')
-				resultado.append(begin)
-				# Formato corregido según el ejemplo proporcionado por el usuario
-				resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
-				resultado.append(end)
+			contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
+			contenido = contenido.replace('"', '')
+			resultado.append(begin)
+			# Formato corregido según el ejemplo proporcionado por el usuario
+			resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
+			resultado.append(end)
 		# Siempre limpiar bloque actual y tipo
 		bloque_actual = []
 		tipo_bloque = None
@@ -305,7 +295,7 @@ def convertir_songpro(texto):
 				referencia_pendiente = None
 			cancion_abierta = False
 
-	def procesar_bloque_simple(texto, transposicion, es_seccion_n=False):
+	def procesar_bloque_simple(texto, transposicion):
 		lineas = texto.strip().split('\n')
 		resultado = []
 		for linea in lineas:
@@ -317,8 +307,6 @@ def convertir_songpro(texto):
 				texto_linea, acordes_linea = match.groups()
 				acordes = acordes_linea.split()
 				acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-				if es_seccion_n:
-					acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
 				latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
 				resultado.append(rf'\textnote{{{texto_linea.strip()}}}')
 				resultado.append(rf'\mbox{{{latex_acordes}}}')
@@ -326,16 +314,12 @@ def convertir_songpro(texto):
 			if es_linea_acordes(linea):
 				acordes = linea.split()
 				acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-				if es_seccion_n:
-					acordes_convertidos = [a.replace('#', r'\#') for a in acordes_convertidos]
 				latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
 				resultado.append(rf'\mbox{{{latex_acordes}}}')
 				continue
 			else:
 				if linea.strip() in ('V', 'C', 'M', 'N'):
 					continue  # evitar procesar marcadores
-				if es_seccion_n:
-					linea = linea.replace('#', r'\#')
 				resultado.append(linea + r'\\')
 		return '\n'.join(resultado)
 
@@ -353,7 +337,37 @@ def convertir_songpro(texto):
 			i += 1
 			continue
 
-
+		if skip_mode:
+    		if linea in ('V', 'C', 'M', 'O', 'S'):  # ← AGREGADO 'C'
+        		skip_mode = False  # Salir del modo skip
+        # Procesar normalmente la nueva sección
+        		if linea == 'V':
+            		cerrar_bloque()
+            		tipo_bloque = 'verse'
+        	elif linea == 'C':  # ← NUEVO: Manejo de C
+            	if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
+                	cerrar_bloque()
+                	tipo_bloque = 'chorus'
+            # Si no sigue acordes, se procesará como letra normal más abajo
+        	elif linea == 'M':
+            	cerrar_bloque()
+            	tipo_bloque = 'melody'
+        	elif linea == 'O':
+            	cerrar_bloque()
+            	cerrar_cancion()
+            	titulo_cancion_actual = ""
+            	resultado.append(r'\beginsong{}')
+            	cancion_abierta = True
+        	elif linea == 'S':
+            	cerrar_bloque()
+            	cerrar_cancion()
+            	if seccion_abierta:
+                	resultado.append(r'\end{songs}')
+            seccion_abierta = True
+            resultado.append(r'\songchapter{' + lineas[i][2:].strip().title() + '}')
+            resultado.append(r'\begin{songs}{titleidx}')
+    i += 1
+    continue
 
 		if linea.startswith('S '):
 			cerrar_bloque()
@@ -432,6 +446,7 @@ def convertir_songpro(texto):
 		if linea == 'N':
 			cerrar_bloque()
 			tipo_bloque = 'nodiagram'
+			skip_mode = True
 			i += 1
 			continue
 
@@ -1010,6 +1025,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
