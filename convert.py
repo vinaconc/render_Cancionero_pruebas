@@ -241,6 +241,8 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 # ... (todo tu código anterior se mantiene igual hasta dentro de convertir_songpro)
 
 def convertir_songpro(texto):
+    import re
+    
     referencia_pendiente = None
 
     lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
@@ -251,6 +253,7 @@ def convertir_songpro(texto):
     cancion_abierta = False
     titulo_cancion_actual = ""
     transposicion = 0
+    raw_mode = False
     skip_mode = False
 
     def entorno(tb):
@@ -276,7 +279,7 @@ def convertir_songpro(texto):
             contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
             contenido = contenido.replace('"', '')
             resultado.append(begin)
-            resultado.append(f"\\diagram{{{letra_diagrama}}}{{{contenido}}}")
+            resultado.append('\\diagram{' + letra_diagrama + '}{' + contenido + '}')
             resultado.append(end)
         bloque_actual = []
         tipo_bloque = None
@@ -286,7 +289,7 @@ def convertir_songpro(texto):
         if cancion_abierta:
             resultado.append(r'\endsong')
             if referencia_pendiente:
-                resultado.append(rf'\beginscripture{{[{referencia_pendiente}]}}')
+                resultado.append('\\beginscripture{[' + str(referencia_pendiente) + ']}')
                 resultado.append(r'\endscripture')
                 referencia_pendiente = None
             cancion_abierta = False
@@ -303,15 +306,15 @@ def convertir_songpro(texto):
                 texto_linea, acordes_linea = match.groups()
                 acordes = acordes_linea.split()
                 acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
-                resultado_local.append(rf'\textnote{{{texto_linea.strip()}}}')
-                resultado_local.append(rf'\mbox{{{latex_acordes}}}')
+                latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
+                resultado_local.append('\\textnote{' + texto_linea.strip() + '}')
+                resultado_local.append('\\mbox{' + latex_acordes + '}')
                 continue
             if es_linea_acordes(linea):
                 acordes = linea.split()
                 acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                latex_acordes = ' '.join(f'\[{a}]' for a in acordes_convertidos)
-                resultado_local.append(rf'\mbox{{{latex_acordes}}}')
+                latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
+                resultado_local.append('\\mbox{' + latex_acordes + '}')
                 continue
             else:
                 if linea.strip() in ('V', 'C', 'M', 'N'):
@@ -334,7 +337,16 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # ✅ SKIP_MODE SIMPLE Y PERFECTO
+        # MODO RAW: copia tal cual hasta V/C/O/S
+        if raw_mode:
+            if linea in ('V', 'C', 'O', 'S'):
+                raw_mode = False
+            else:
+                resultado.append(linea)
+                i += 1
+                continue
+
+        # SKIP_MODE (mantienes el original si lo necesitas)
         if skip_mode:
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 skip_mode = False
@@ -395,9 +407,10 @@ def convertir_songpro(texto):
             resultado.append(r'\beginsong{}')
             cancion_abierta = True
 
+        # N = MODO RAW (texto plano, sin conversión LaTeX)
         if linea == 'N':
             cerrar_bloque()
-            skip_mode = True
+            raw_mode = True
             i += 1
             continue
 
@@ -445,13 +458,13 @@ def convertir_songpro(texto):
 
             if letras_raw == '_':
                 cerrar_bloque()
-                resultado.append(f"\\textnote{{{acordes[0]}}}")
+                resultado.append(acordes[0])
                 i += 2
                 continue
 
             if not ('_' in letras_raw or '#' in letras_raw):
                 acordes_escapados = [a.replace('#', '\\#') for a in acordes]
-                bloque_actual.append('\\mbox{' + ' '.join([f'\\[{a}]' for a in acordes_escapados]) + '}')
+                bloque_actual.append('\\mbox{' + ' '.join([f'[{a}]' for a in acordes_escapados]) + '}')
                 bloque_actual.append(letras_raw)
                 i += 2
                 continue
@@ -508,7 +521,6 @@ def convertir_songpro(texto):
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
-
 
 
 def normalizar(palabra):
@@ -939,6 +951,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
