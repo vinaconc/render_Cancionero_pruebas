@@ -242,6 +242,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 
 def convertir_songpro(texto):
     referencia_pendiente = None
+
     lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
     resultado = []
     bloque_actual = []
@@ -263,7 +264,7 @@ def convertir_songpro(texto):
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
         if bloque_actual:
-            begin, end = entorno(tipo_bloque)  # ✅ INDENTACIÓN CORREGIDA
+            begin, end = entorno(tipo_bloque)
             if tipo_bloque == 'verse':
                 letra_diagrama = 'A'
             elif tipo_bloque == 'chorus':
@@ -292,7 +293,7 @@ def convertir_songpro(texto):
 
     def procesar_bloque_simple(texto, transposicion):
         lineas = texto.strip().split('\n')
-        resultado_local = []  # Renombrado para evitar conflicto
+        resultado_local = []
         for linea in lineas:
             linea = linea.strip()
             if not linea:
@@ -333,7 +334,7 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # ✅ BLOQUE SKIP_MODE CORREGIDO E INDENTADO
+        # BLOQUE SKIP_MODE - 100% ESPACIOS
         if skip_mode:
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 skip_mode = False
@@ -359,14 +360,11 @@ def convertir_songpro(texto):
                     if seccion_abierta:
                         resultado.append(r'\end{songs}')
                     seccion_abierta = True
-                    if i < len(lineas) and lineas[i].startswith('S '):  # ✅ CORREGIDO
-                        resultado.append(r'\songchapter{' + lineas[i][2:].strip().title() + '}')
-                        resultado.append(r'\begin{songs}{titleidx}')
+                    resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
+                    resultado.append(r'\begin{songs}{titleidx}')
             i += 1
             continue
 
-        # ... resto del código igual hasta N ...
-        
         if linea.startswith('S '):
             cerrar_bloque()
             cerrar_cancion()
@@ -378,11 +376,33 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # ... (resto de O, títulos, etc. igual) ...
+        if linea.startswith('O '):
+            cerrar_bloque()
+            cerrar_cancion()
+            partes = linea[2:].strip().split()
+            transposicion = 0
+            if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
+                transposicion = int(partes[-1].replace('=', ''))
+                partes = partes[:-1]
+            titulo_cancion_actual = ' '.join(partes).title()
+            etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+            resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+            resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
+            resultado.append(r'\phantomsection')
+            resultado.append(rf'\label{{{etiqueta}}}')
+            cancion_abierta = True
+            i += 1
+            continue
 
         if not cancion_abierta:
             resultado.append(r'\beginsong{}')
             cancion_abierta = True
+
+        if linea == 'N':
+            cerrar_bloque()
+            skip_mode = True
+            i += 1
+            continue
 
         if linea == 'V':
             cerrar_bloque()
@@ -396,13 +416,6 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # ✅ N CORREGIDO: SOLO skip_mode, SIN nodiagram
-        if linea == 'N':
-            cerrar_bloque()
-            skip_mode = True  # ✅ SOLO ESTO
-            i += 1
-            continue
-
         if linea == 'C':
             if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
                 cerrar_bloque()
@@ -410,9 +423,7 @@ def convertir_songpro(texto):
                 i += 1
                 continue
 
-        # ... resto del código de procesamiento de acordes y letras igual ...
-
-        i += 1  # Default increment
+        i += 1
 
     cerrar_bloque()
     cerrar_cancion()
@@ -420,6 +431,7 @@ def convertir_songpro(texto):
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+
 
 def normalizar(palabra):
 	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
@@ -849,6 +861,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
