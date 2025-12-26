@@ -651,60 +651,25 @@ def api_generar_pdf():
         app.logger.error(f"Error en api_generar_pdf: {str(e)}")
         return f"Error procesando texto: {str(e)}", 500
 # 🔹 HTML con menú y botón PDF
-FORM_HTML = """
+FORM_HTML = '''<!DOCTYPE html>
+<html><head><title>Cancionero</title></head><body style="font-family:Arial,sans-serif;max-width:1200px;margin:0 auto;padding:20px;">
 <h2>Creador Cancionero</h2>
-{% if error %}
-<div style="color: red; font-weight: bold; margin-bottom: 1em;">
-    {{ error.replace('\n', '<br>')|safe }}
-</div>
-{% endif %}
+{% if error %}<div style="color:#d00;font-weight:bold;margin-bottom:1em;padding:10px;background:#fee;border:1px solid #fcc;border-radius:4px;">{{ error.replace("\\n","<br>")|safe }}</div>{% endif %}
 <form id="formulario" method="post" enctype="multipart/form-data">
-    <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
-    <button type="button" id="btnInsertB">Repit</button>
-    <button type="button" id="btnInsertUnderscore">Chord</button><br><br>
-
-    <label for="archivo">O sube un archivo de texto:</label>
-    <input type="file" name="archivo" id="archivo"><br><br>
-    <!-- Menú de acciones -->
-    <button type="submit" name="accion" value="abrir">Abrir</button>
-    <button type="submit" formaction="/descargar">Guardar como (descargar)</button>
-    <button type="submit" name="accion" value="generar_pdf">Generar PDF</button>
+<textarea id="texto" name="texto" rows="25" cols="100" style="width:100%;font-family:monospace;font-size:14px;">{{ texto }}</textarea><br><br>
+<button type="button" id="btnInsertB" style="margin:5px;">Repetir (B)</button>
+<button type="button" id="btnInsertUnderscore" style="margin:5px;">Chord (_)</button><br><br>
+<label for="archivo">O sube archivo:</label>
+<input type="file" name="archivo" id="archivo" accept=".txt,.song" style="margin:5px;"><br><br>
+<button type="submit" name="accion" value="abrir" style="margin:5px;padding:10px 20px;">📁 Abrir</button>
+<button type="submit" formaction="/descargar" style="margin:5px;padding:10px 20px;">💾 Descargar TXT</button>
+<button type="submit" name="accion" value="generar_pdf" style="margin:5px;padding:10px 20px;background:#4a90e2;color:white;border:none;">🖨️ Generar PDF</button>
 </form>
-
 <script>
-const form = document.getElementById("formulario");
-
-form.addEventListener("submit", async function(e) {
-    const submitter = e.submitter;
-    const accion = submitter ? submitter.value : '';
-    
-    if (accion !== "generar_pdf") return;
-    
-    e.preventDefault();
-    
-    const texto = document.getElementById("texto").value;
-    
-    const formData = new FormData(form);
-    
-    try {
-        const resp = await fetch("/", {
-            method: "POST",
-            body: formData
-        });
-        
-        if (resp.ok && resp.headers.get("content-type")?.includes("application/pdf")) {
-            const blob = await resp.blob();
-            const url = URL.createObjectURL(blob);
-            window.open(url, "_blank");
-        } else {
-            window.location.reload();  // Recarga para ver error
-        }
-    } catch (err) {
-        window.location.reload();
-    }
-});
+document.addEventListener("DOMContentLoaded",function(){const f=document.getElementById("formulario"),t=document.getElementById("texto");document.getElementById("btnInsertB").onclick=()=>{t.value+=" B "};document.getElementById("btnInsertUnderscore").onclick=()=>{t.value+=" _ "};f.onsubmit=async e=>{const s=e.submitter;if(!s||s.value!=="generar_pdf")return;e.preventDefault();const d=new FormData(f);try{const r=await fetch("/",{method:"POST",body:d});if(r.ok&&r.headers.get("content-type")?.includes("application/pdf")){const b=await r.blob(),u=URL.createObjectURL(b);window.open(u,"_blank")}else window.location.reload()}catch(e){window.location.reload()}}});
 </script>
-"""
+</body></html>'''
+
 
 @app.route("/descargar", methods=["POST"])
 def descargar():
@@ -788,41 +753,3 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
