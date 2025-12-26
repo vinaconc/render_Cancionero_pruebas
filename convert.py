@@ -350,9 +350,10 @@ def convertir_songpro(texto):
         if raw_mode:
             if linea in ('V', 'C', 'O', 'S'):
                 raw_mode = False
+                cerrar_bloque()
             else:
                 linea_escapada = escape_latex_raw(linea)
-                resultado.append(linea_escapada) 
+                bloque_actual.append(linea_escapada)
                 i += 1
                 continue
 
@@ -416,13 +417,6 @@ def convertir_songpro(texto):
         if not cancion_abierta:
             resultado.append(r'\beginsong{}')
             cancion_abierta = True
-
-        # N = MODO RAW (texto plano, sin conversión LaTeX)
-        if linea == 'N':
-            cerrar_bloque()
-            raw_mode = True
-            i += 1
-            continue
 
         if linea == 'V':
             cerrar_bloque()
@@ -970,6 +964,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
