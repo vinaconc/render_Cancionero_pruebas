@@ -303,41 +303,39 @@ def convertir_songpro(texto):
                 referencia_pendiente = None
             cancion_abierta = False
 
-    def procesar_bloque_simple(texto, transposicion):
-        lineas = texto.strip().split('\n')
-        resultado_local = []
-        for linea in lineas:
-            linea = linea.strip()
-            if not linea:
+def procesar_bloque_simple(texto, transposicion):
+    lineas = texto.strip().split('\n')
+    resultado_local = []
+    for linea in lineas:
+        linea = linea.strip()
+        if not linea:
+            continue
+        match = re.match(r'^([^:]+):\s*(.*)$', linea)
+        if match:
+            texto_linea, acordes_linea = match.groups()
+            acordes = acordes_linea.split()
+            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+            latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
+            resultado_local.append('\\textnote{' + texto_linea.strip() + '}')
+            resultado_local.append('\\mbox{' + latex_acordes + '}')
+            continue
+        if es_linea_acordes(linea):
+            acordes = linea.split()
+            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
+            latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
+            resultado_local.append('\\mbox{' + latex_acordes + '}')
+            continue
+        else:
+            if linea.strip() in ('V', 'C', 'M', 'N'):
                 continue
-            match = re.match(r'^([^:]+):\s*(.*)$', linea)
-            if match:
-                texto_linea, acordes_linea = match.groups()
-            else:
-                resultado_local.append(linea + r'\\')
-                continue
-                acordes = acordes_linea.split()
-                acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
-                resultado_local.append('\\textnote{' + texto_linea.strip() + '}')
-                resultado_local.append('\\mbox{' + latex_acordes + '}')
-                continue
-            if es_linea_acordes(linea):
-                acordes = linea.split()
-                acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-                latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
-                resultado_local.append('\\mbox{' + latex_acordes + '}')
-                continue
-            else:
-                if linea.strip() in ('V', 'C', 'M', 'N'):
-                    continue
-                resultado_local.append(linea + r'\\')
-        return '\n'.join(resultado_local)
+            resultado_local.append(linea + r'\\')
+    return '\n'.join(resultado_local)
+
 
     i = 0
     while i < len(lineas):
         linea = lineas[i].strip()
-        
+        app.logger.info(f"DEBUG línea {i}: '{linea}' raw_mode={raw_mode}")  # log temporal
         if linea.lower().startswith("ref="):
             contenido = linea[4:].strip()
             if contenido.startswith('(') and contenido.endswith(')'):
@@ -976,6 +974,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
