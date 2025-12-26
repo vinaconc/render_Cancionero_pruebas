@@ -654,9 +654,9 @@ def api_generar_pdf():
 FORM_HTML = """
 <h2>Creador Cancionero</h2>
 {% if error %}
-    <div style="color: red; font-weight: bold; margin-bottom: 1em;">
-        {{ error.replace('\\n', '<br>')|safe }}
-    </div>
+<div style="color: red; font-weight: bold; margin-bottom: 1em;">
+    {{ error.replace('\n', '<br>')|safe }}
+</div>
 {% endif %}
 <form id="formulario" method="post" enctype="multipart/form-data">
     <textarea id="texto" name="texto" rows="20" cols="80" placeholder="Escribe tus canciones aquí...">{{ texto }}</textarea><br>
@@ -674,110 +674,37 @@ FORM_HTML = """
 <script>
 const form = document.getElementById("formulario");
 
-// Función para validar acordes
-function validarAcordes(texto) {
-    const lineas = texto.split('\n');
-    const errores = [];
-    
-    for (let i = 0; i < lineas.length; i++) {
-        const linea = lineas[i].trim();
-        
-        if (!linea || linea.startsWith('S ') || linea.startsWith('O ') || 
-            ['V', 'C', 'M', 'N'].includes(linea) || linea.startsWith('ref=') ||
-            linea.match(/^[A-Z\s]+$/) || linea.includes('_')) {
-            continue;
-        }
-        
-        const tokens = linea.split(/\s+/);
-        let tieneAcordesValidos = false;
-        let tieneTokensInvalidos = false;
-        const tokensInvalidos = [];
-        
-        for (const token of tokens) {
-            const acordeAmericano = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(\/[A-G][#b]?)?$/i;
-            const notasLatinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si', 'reb', 'mib', 'lab', 'sib', 'do#', 're#', 'fa#', 'sol#', 'la#'];
-            const acordeLatino = notasLatinas.some(nota => token.toLowerCase().startsWith(nota.toLowerCase()));
-            
-            if (acordeAmericano.test(token) || acordeLatino) {
-                tieneAcordesValidos = true;
-            } else {
-                tieneTokensInvalidos = true;
-                tokensInvalidos.push(token);
-            }
-        }
-        
-        if (tieneAcordesValidos && tieneTokensInvalidos) {
-            errores.push(`Línea ${i + 1}: Acordes inválidos: ${tokensInvalidos.join(', ')}. Use acordes válidos como: C, D, E, F, G, A, B, Do, Re, Mi, Fa, Sol, La, Si, etc.`);
-        }
-    }
-    
-    return errores;
-}
-const form = document.getElementById("formulario");
-
-form.addEventListener("submit", async function (e) {
-    
-    const submitter = e.submitter; 
+form.addEventListener("submit", async function(e) {
+    const submitter = e.submitter;
     const accion = submitter ? submitter.value : '';
-
-    // Si la acción es 'abrir', 'descargar', o cualquier otra, dejamos el envío nativo.
-    if (accion !== "generar_pdf") {
-        return; 
-    }
-
-    // A partir de aquí, solo se ejecuta si accion === "generar_pdf"
     
-    e.preventDefault(); // Detenemos el envío solo para generar_pdf para usar fetch
-
+    if (accion !== "generar_pdf") return;
+    
+    e.preventDefault();
+    
     const texto = document.getElementById("texto").value;
-    const errores = validarAcordes(texto);
-    
-    if (errores.length > 0) {
-        alert("Error de sintaxis detectado:\n\n" + errores.join("\n") + "\n\nPor favor, corrige los errores y vuelve a intentar.");
-        return;
-    }
     
     const formData = new FormData(form);
-
+    
     try {
         const resp = await fetch("/", {
             method: "POST",
-            body: formData,
-            redirect: 'manual' // Clave para manejar el PRG
+            body: formData
         });
-
-        // 1. Manejo de Redirecciones (PRG): Para errores (status 302 o similar)
-        if (resp.status === 302 || (resp.status >= 300 && resp.status < 400 && resp.headers.get('Location'))) {
-            // Sigue la redirección a la ruta GET, que contiene el alert de error.
-            window.location.href = resp.headers.get('Location') || "/";
-            return;
-        }
-
-        // 2. Manejo de PDF (Acción exitosa)
-        const contentType = resp.headers.get("content-type");
-        if (contentType && contentType.includes("application/pdf")) {
+        
+        if (resp.ok && resp.headers.get("content-type")?.includes("application/pdf")) {
             const blob = await resp.blob();
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             window.open(url, "_blank");
-            return;
-        } 
-        
-        // 3. Manejo de Errores Inesperados
-        if (contentType && contentType.includes("application/json")) {
-            const data = await resp.json();
-            alert(data.error || "Error de servidor inesperado (JSON).");
         } else {
-             // Si no es PDF ni redirección ni JSON, forzamos la recarga para ver el error HTML
-             alert("Respuesta inesperada del servidor. Recargando...");
-             window.location.href = "/";
+            window.location.reload();  // Recarga para ver error
         }
-        
     } catch (err) {
-        alert("Error de conexión con el servidor o fallo de red: " + err.message);
+        window.location.reload();
     }
 });
 </script>
-"""
+
 
 @app.route("/descargar", methods=["POST"])
 def descargar():
@@ -861,6 +788,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
