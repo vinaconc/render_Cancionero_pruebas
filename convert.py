@@ -221,7 +221,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 			if es_indexada:
 				if palabra_para_indice not in indice_tematica_global:
 					indice_tematica_global[palabra_para_indice] = set()
-				titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion.strip()) if titulo_cancion else "Sin título"
+				titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', (titulo_cancion or "Sin título").strip())
 				indice_tematica_global[palabra_para_indice].add(titulo_indexado)
 
 				# Solo agregamos esta palabra, resaltada y con acorde insertado
@@ -861,6 +861,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
