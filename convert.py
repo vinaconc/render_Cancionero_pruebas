@@ -340,16 +340,17 @@ def convertir_songpro(texto):
         if not linea:
             i += 1
             continue
+
+        # --- INICIO BLOQUE N / RAW ---
         if linea == 'N':
             cerrar_bloque()
             raw_mode = True
-            tipo_bloque = 'raw'
             bloque_actual = []
+            # tipo_bloque no se usa para RAW
             i += 1
             continue
-		
-        # MODO RAW: copia tal cual hasta V/C/O/S
-                # MODO RAW: copia tal cual hasta V/C/O/S o N
+
+        # MODO RAW: copia tal cual hasta V/C/O/S o nueva N
         if raw_mode:
             # Si llega un control, cerramos el bloque RAW
             if linea in ('V', 'C', 'O', 'S', 'N'):
@@ -358,15 +359,14 @@ def convertir_songpro(texto):
                     contenido_raw = r'\\'.join(bloque_actual) + r'\\'
                     resultado.append(contenido_raw)
                     bloque_actual = []
-                    tipo_bloque = None
-                # No hacemos i += 1 aquí; dejamos que la V/C/O/S/N
-                # se procese de nuevo en la siguiente iteración
+                # Volvemos a procesar esta línea como control
+                continue
             else:
                 linea_escapada = escape_latex_raw(linea)
                 bloque_actual.append(linea_escapada)
                 i += 1
                 continue
-
+        # --- FIN BLOQUE N / RAW ---
 
         # SKIP_MODE (mantienes el original si lo necesitas)
         if skip_mode:
@@ -562,15 +562,6 @@ def limpiar_titulo_para_label(titulo):
 	titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
 	titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
 	return titulo.replace(' ', '-')
-
-def limpiar_titulo_para_label(titulo):
-    # Elimina transposición al final como ' =-2' o '=+1'
-    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
-    # Normaliza: quita tildes y caracteres no válidos para etiquetas
-    titulo = unicodedata.normalize('NFD', titulo)
-    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
-    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
-    return titulo.replace(' ', '-')
 
 def generar_indice_tematica():
 	if not indice_tematica_global:
@@ -975,6 +966,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
