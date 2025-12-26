@@ -539,7 +539,9 @@ def convertir_songpro(texto):
     cerrar_cancion()
     if seccion_abierta:
         resultado.append(r'\end{songs}')
-
+    if raw_mode and bloque_actual:
+        contenido_raw = r'\\'.join(bloque_actual) + r'\\'
+        resultado.append(contenido_raw)
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
 
 
@@ -765,7 +767,7 @@ FORM_HTML = """
 <h2>Creador Cancionero</h2>
 {% if error %}
     <div style="color: red; font-weight: bold; margin-bottom: 1em;">
-        {{ error.replace('\n', '<br>')|safe }}
+        {{ error.replace('\\n', '<br>')|safe }}
     </div>
 {% endif %}
 <form id="formulario" method="post" enctype="multipart/form-data">
@@ -971,6 +973,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
