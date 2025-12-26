@@ -239,6 +239,10 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 
 
 # ... (todo tu código anterior se mantiene igual hasta dentro de convertir_songpro)
+def escape_latex_raw(linea):
+    """Escapa # para LaTeX en modo RAW"""
+    return linea.replace('#', r'\#')
+
 
 def convertir_songpro(texto):
     import re
@@ -340,8 +344,9 @@ def convertir_songpro(texto):
         # MODO RAW: copia tal cual hasta V/C/O/S
         if raw_mode:
             if linea in ('V', 'C', 'O', 'S'):
-                raw_mode = False
+				raw_mode = False
             else:
+				linea_escapada = escape_latex_raw(linea)
                 resultado.append(linea)
                 i += 1
                 continue
@@ -951,6 +956,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
