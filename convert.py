@@ -313,6 +313,9 @@ def convertir_songpro(texto):
             match = re.match(r'^([^:]+):\s*(.*)$', linea)
             if match:
                 texto_linea, acordes_linea = match.groups()
+            else:
+                resultado_local.append(linea + r'\\')
+                continue
                 acordes = acordes_linea.split()
                 acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
                 latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
@@ -973,6 +976,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
