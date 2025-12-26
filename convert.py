@@ -557,7 +557,7 @@ def index():
     
     # Si la solicitud es POST
     if request.method == "POST":
-		app.logger.info("📥 LLEGÓ POST /")
+        app.logger.info("📥 LLEGÓ POST /")
         texto = request.form.get("texto", "")
         app.logger.info(f"Texto recibido: {repr(texto)}")
         accion = request.form.get("accion")
@@ -751,5 +751,6 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
