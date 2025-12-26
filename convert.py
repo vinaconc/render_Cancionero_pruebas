@@ -353,14 +353,14 @@ def convertir_songpro(texto):
             if linea in ('V', 'C', 'O', 'S'):
                raw_mode = False
                 # Volcamos el bloque RAW como bloque independiente
-            if bloque_actual:
-                contenido_raw = r'\\'.join(bloque_actual) + r'\\'
-                resultado.append(contenido_raw)
-                bloque_actual = []
-                tipo_bloque = None
-                # No incrementamos i aquí: dejamos que la V/C/O/S/N se procese
+               if bloque_actual:
+                   contenido_raw = r'\\'.join(bloque_actual) + r'\\'
+                   resultado.append(contenido_raw)
+                   bloque_actual = []
+                   tipo_bloque = None
+                   # No incrementamos i aquí: dejamos que la V/C/O/S/N se procese
                 # de nuevo en la iteración siguiente (la N activará otro bloque RAW).
-         else:
+         else:   
             linea_escapada = escape_latex_raw(linea)
             bloque_actual.append(linea_escapada)
             i += 1
@@ -973,6 +973,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
