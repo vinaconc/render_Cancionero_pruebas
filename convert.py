@@ -10,10 +10,7 @@ import uuid
 import time
 import io
 import tempfile
-@app.errorhandler(NotFound)
-def not_found(e):
-    app.logger.error(f"404 en URL: {request.path}")
-    return "Página no encontrada", 404
+
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -24,6 +21,10 @@ app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
 app.config['TESTING'] = False
 app.config['PROPAGATE_EXCEPTIONS'] = False
+@app.errorhandler(NotFound)
+def not_found(e):
+    app.logger.error(f"404 en URL: {request.path}")
+    return "Página no encontrada", 404
 @app.errorhandler(Exception)
 def handle_exception(e):
     # Registrar el error para depuración pero no mostrarlo al usuario
@@ -970,6 +971,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
