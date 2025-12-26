@@ -255,6 +255,8 @@ def limpiar_titulo_para_label(titulo):
     return titulo.replace(' ', '-')
 
 def convertir_songpro(texto):
+    app.logger.info("🚀 convertir_songpro INICIADO")
+    app.logger.info(f"Texto entrada repr: {repr(texto)}")
     referencia_pendiente = None
     lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
     resultado = []
@@ -753,3 +755,4 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
