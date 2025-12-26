@@ -400,7 +400,7 @@ def convertir_songpro(texto):
         # Acordes + Letra
         if i + 1 < len(lineas) and es_linea_acordes(lineas[i]):
             acordes_originales = lineas[i].strip().split()
-            acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
+            acordes = [transportar_acorde(a, transposicion) or a for a in acordes_originales]
             letras_raw = lineas[i + 1].strip()
             
             if not ('_' in letras_raw or '#' in letras_raw):
@@ -861,6 +861,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
