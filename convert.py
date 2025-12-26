@@ -347,7 +347,7 @@ def convertir_songpro(texto):
                 raw_mode = False
             else:
                 linea_escapada = escape_latex_raw(linea)
-                resultado.append(linea)
+                resultado.append(linea_escapada) 
                 i += 1
                 continue
 
@@ -552,6 +552,15 @@ def limpiar_titulo_para_label(titulo):
 	titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
 	titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
 	return titulo.replace(' ', '-')
+
+def limpiar_titulo_para_label(titulo):
+    # Elimina transposición al final como ' =-2' o '=+1'
+    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
+    # Normaliza: quita tildes y caracteres no válidos para etiquetas
+    titulo = unicodedata.normalize('NFD', titulo)
+    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
+    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
+    return titulo.replace(' ', '-')
 
 def generar_indice_tematica():
 	if not indice_tematica_global:
@@ -956,6 +965,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
