@@ -244,16 +244,16 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 
 
 # ... (todo tu código anterior se mantiene igual hasta dentro de convertir_songpro)
-def escape_latex_raw(linea):
-    """Escapa # para LaTeX en modo RAW"""
-    return linea.replace('#', r'\#')
 
+def limpiar_titulo_para_label(titulo):
+    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
+    titulo = unicodedata.normalize('NFD', titulo)
+    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
+    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
+    return titulo.replace(' ', '-')
 
 def convertir_songpro(texto):
-    import re
-    
     referencia_pendiente = None
-
     lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
     resultado = []
     bloque_actual = []
@@ -263,28 +263,17 @@ def convertir_songpro(texto):
     titulo_cancion_actual = ""
     transposicion = 0
     raw_mode = False
-    skip_mode = False
 
     def entorno(tb):
-        if tb == 'verse':
-            return (r'\beginverse', r'\endverse')
-        elif tb == 'chorus':
-            return (r'\beginchorus', r'\endchorus')
-        elif tb == 'melody':
-            return (r'\beginverse', r'\endverse')
+        if tb == 'verse': return (r'\beginverse', r'\endverse')
+        elif tb == 'chorus': return (r'\beginchorus', r'\endchorus')
+        elif tb == 'melody': return (r'\beginverse', r'\endverse')
 
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
         if bloque_actual:
             begin, end = entorno(tipo_bloque)
-            if tipo_bloque == 'verse':
-                letra_diagrama = 'A'
-            elif tipo_bloque == 'chorus':
-                letra_diagrama = 'B'
-            elif tipo_bloque == 'melody':
-                letra_diagrama = 'C'
-            else:
-                letra_diagrama = 'A'
+            letra_diagrama = {'verse': 'A', 'chorus': 'B', 'melody': 'C'}.get(tipo_bloque, 'A')
             contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
             contenido = contenido.replace('"', '')
             resultado.append(begin)
@@ -303,39 +292,11 @@ def convertir_songpro(texto):
                 referencia_pendiente = None
             cancion_abierta = False
 
-def procesar_bloque_simple(texto, transposicion):
-    lineas = texto.strip().split('\n')
-    resultado_local = []
-    for linea in lineas:
-        linea = linea.strip()
-        if not linea:
-            continue
-        match = re.match(r'^([^:]+):\s*(.*)$', linea)
-        if match:
-            texto_linea, acordes_linea = match.groups()
-            acordes = acordes_linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
-            resultado_local.append('\\textnote{' + texto_linea.strip() + '}')
-            resultado_local.append('\\mbox{' + latex_acordes + '}')
-            continue
-        if es_linea_acordes(linea):
-            acordes = linea.split()
-            acordes_convertidos = [transportar_acorde(a, transposicion) for a in acordes]
-            latex_acordes = ' '.join(f'[{a}]' for a in acordes_convertidos)
-            resultado_local.append('\\mbox{' + latex_acordes + '}')
-            continue
-        else:
-            if linea.strip() in ('V', 'C', 'M', 'N'):
-                continue
-            resultado_local.append(linea + r'\\')
-    return '\n'.join(resultado_local)
-
-
     i = 0
     while i < len(lineas):
         linea = lineas[i].strip()
-        app.logger.info(f"DEBUG línea {i}: '{linea}' raw_mode={raw_mode}")  # log temporal
+        app.logger.info(f"DEBUG línea {i}: '{linea}' raw_mode={raw_mode}")
+        
         if linea.lower().startswith("ref="):
             contenido = linea[4:].strip()
             if contenido.startswith('(') and contenido.endswith(')'):
@@ -347,51 +308,44 @@ def procesar_bloque_simple(texto, transposicion):
             i += 1
             continue
 
-        # --- INICIO BLOQUE N / RAW ---
+        # N → MODO RAW
         if linea == 'N':
+            app.logger.info(">>> ENTRANDO MODO RAW N <<<")
             cerrar_bloque()
             raw_mode = True
             bloque_actual = []
-            # tipo_bloque no se usa para RAW
             i += 1
             continue
 
-        # MODO RAW: copia tal cual hasta V/C/O/S o nueva N
+        # MODO RAW activo
         if raw_mode:
-            # Si llega un control, cerramos el bloque RAW
+            app.logger.info(f"RAW modo: '{linea}'")
             if linea in ('V', 'C', 'O', 'S', 'N'):
+                app.logger.info(f">>> CERRANDO RAW por {linea}")
                 raw_mode = False
                 if bloque_actual:
                     contenido_raw = r'\\'.join(bloque_actual) + r'\\'
                     resultado.append(contenido_raw)
                     bloque_actual = []
-                # Volvemos a procesar esta línea como control
                 continue
             else:
                 linea_escapada = escape_latex_raw(linea)
                 bloque_actual.append(linea_escapada)
                 i += 1
                 continue
-        # --- FIN BLOQUE N / RAW ---
 
-        # SKIP_MODE (mantienes el original si lo necesitas)
-        if skip_mode:
-            if linea in ('V', 'C', 'M', 'O', 'S'):
-                skip_mode = False
-            i += 1
-            continue
-
+        # S Sección
         if linea.startswith('S '):
             cerrar_bloque()
             cerrar_cancion()
-            if seccion_abierta:
-                resultado.append(r'\end{songs}')
+            if seccion_abierta: resultado.append(r'\end{songs}')
             seccion_abierta = True
             resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
             resultado.append(r'\begin{songs}{titleidx}')
             i += 1
             continue
 
+        # O Canción titulada
         if linea.startswith('O '):
             cerrar_bloque()
             cerrar_cancion()
@@ -410,7 +364,8 @@ def procesar_bloque_simple(texto, transposicion):
             i += 1
             continue
 
-        if linea.isupper() and len(linea) > 1 and not es_linea_acordes(linea) and linea not in ('V', 'C', 'M', 'O', 'S'):
+        # Título automático (línea UPPERCASE)
+        if linea.isupper() and len(linea) > 1 and linea not in ('V', 'C', 'M', 'O', 'S', 'N'):
             cerrar_bloque()
             cerrar_cancion()
             titulo_cancion_actual = linea.title()
@@ -422,31 +377,17 @@ def procesar_bloque_simple(texto, transposicion):
             i += 1
             continue
 
-        if linea == 'O':
-            cerrar_bloque()
-            cerrar_cancion()
-            titulo_cancion_actual = ""
-            resultado.append(r'\beginsong{}')
-            cancion_abierta = True
-            i += 1
-            continue
-
-        if not cancion_abierta:
-            resultado.append(r'\beginsong{}')
-            cancion_abierta = True
-
+        # Controles de bloque
         if linea == 'V':
             cerrar_bloque()
             tipo_bloque = 'verse'
             i += 1
             continue
-
         if linea == 'M':
             cerrar_bloque()
             tipo_bloque = 'melody'
             i += 1
             continue
-
         if linea == 'C':
             if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
                 cerrar_bloque()
@@ -454,96 +395,40 @@ def procesar_bloque_simple(texto, transposicion):
                 i += 1
                 continue
 
-        # PROCESAMIENTO ACORDES + LETRAS
+        # Acordes + Letra
         if i + 1 < len(lineas) and es_linea_acordes(lineas[i]):
             acordes_originales = lineas[i].strip().split()
             acordes = [transportar_acorde(a, transposicion) for a in acordes_originales]
             letras_raw = lineas[i + 1].strip()
-            if letras_raw.startswith("//") and letras_raw.endswith("//"):
-                letras_raw = letras_raw[2:-2].strip()
-
-            rep_ini = letras_raw.startswith('B ')
-            if rep_ini:
-                letras_raw = letras_raw[2:].lstrip()
-            rep_fin = False
-            repeticiones = 2
-
-            m_fin = re.search(r'\s+B=(\d+)$', letras_raw)
-            if m_fin:
-                rep_fin = True
-                repeticiones = int(m_fin.group(1))
-                letras_raw = letras_raw[:m_fin.start()].rstrip()
-            elif letras_raw.endswith(' B'):
-                rep_fin = True
-                letras_raw = letras_raw[:-2].rstrip()
-
-            if letras_raw == '_':
-                cerrar_bloque()
-                resultado.append(acordes[0])
-                i += 2
-                continue
-
+            
             if not ('_' in letras_raw or '#' in letras_raw):
                 acordes_escapados = [a.replace('#', '\\#') for a in acordes]
                 bloque_actual.append('\\mbox{' + ' '.join([f'[{a}]' for a in acordes_escapados]) + '}')
                 bloque_actual.append(letras_raw)
-                i += 2
-                continue
-
-            linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
-            if rep_ini and rep_fin:
-                linea_convertida = r'\lrep ' + linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
-            elif rep_ini:
-                linea_convertida = r'\lrep ' + linea_convertida
-            elif rep_fin:
-                linea_convertida = linea_convertida + rf' \rrep \rep{{{repeticiones}}}'
-            bloque_actual.append(linea_convertida)
+            else:
+                linea_convertida = procesar_linea_con_acordes_y_indices(letras_raw, acordes, titulo_cancion_actual)
+                bloque_actual.append(linea_convertida)
+            
             i += 2
             continue
 
-        # LÍNEAS NORMALES DE LETRA
-        if tipo_bloque and not es_linea_acordes(linea):
-            rep_ini = linea.startswith('B ')
-            if rep_ini:
-                linea = linea[2:].lstrip()
-
-            rep_fin = False
-            repeticiones = 2
-            m_fin = re.search(r'\s+[Bb]=(\d+)$', linea)
-            if m_fin:
-                rep_fin = True
-                repeticiones = int(m_fin.group(1))
-                linea = linea[:m_fin.start()].rstrip()
-            elif linea.endswith(' B') or linea.endswith(' b'):
-                rep_fin = True
-                linea = linea[:-2].rstrip()
-
+        # Línea normal de letra
+        if tipo_bloque:
+            linea_procesada = linea
             if '_' in linea or '#' in linea:
                 linea_procesada = procesar_linea_con_acordes_y_indices(linea, [], titulo_cancion_actual)
-            else:
-                linea_procesada = linea
-
-            if rep_ini and rep_fin:
-                linea_procesada = r'\lrep ' + linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
-            elif rep_ini:
-                linea_procesada = r'\lrep ' + linea_procesada
-            elif rep_fin:
-                linea_procesada = linea_procesada + rf' \rrep \rep{{{repeticiones}}}'
-
             bloque_actual.append(linea_procesada)
-            i += 1
-            continue
-
+        
         i += 1
 
     cerrar_bloque()
     cerrar_cancion()
-    if seccion_abierta:
-        resultado.append(r'\end{songs}')
+    if seccion_abierta: resultado.append(r'\end{songs}')
     if raw_mode and bloque_actual:
-        contenido_raw = r'\\'.join(bloque_actual) + r'\\'
-        resultado.append(contenido_raw)
+        resultado.append(r'\\'.join(bloque_actual) + r'\\')
+    
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
+
 
 
 def normalizar(palabra):
@@ -974,6 +859,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
