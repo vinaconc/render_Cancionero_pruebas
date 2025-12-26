@@ -1,5 +1,6 @@
 from flask import session, Flask, request, after_this_request, jsonify, send_file, render_template_string, Response, redirect, url_for
 from flask_cors import CORS
+from werkzeug.exceptions import NotFound
 import traceback
 import os
 import subprocess
@@ -9,7 +10,10 @@ import uuid
 import time
 import io
 import tempfile
-
+@app.errorhandler(NotFound)
+def not_found(e):
+    app.logger.error(f"404 en URL: {request.path}")
+    return "Página no encontrada", 404
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -966,6 +970,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
