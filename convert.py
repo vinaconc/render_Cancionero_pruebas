@@ -340,7 +340,12 @@ def convertir_songpro(texto):
         if not linea:
             i += 1
             continue
-
+        if linea == 'N':
+            cerrar_bloque()
+            raw_mode = True
+            i += 1
+            continue
+		
         # MODO RAW: copia tal cual hasta V/C/O/S
         if raw_mode:
             if linea in ('V', 'C', 'O', 'S'):
@@ -965,6 +970,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
