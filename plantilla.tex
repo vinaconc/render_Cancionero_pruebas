@@ -15,6 +15,8 @@
 \usepackage[normalem]{ulem} % Para subrayado, si lo usas (ej. \uline).
 %\usepackage{scrextend} % Necesario si usas \changefontsizes.
 
+\usepackage{schemata} % aquí
+
 % --- Configuración de geometría de la página ---
 \usepackage[a4paper,
             top=1cm, 
@@ -70,13 +72,12 @@
   \lineskip=1pt
 }
 
-% --- COMANDOS PERSONALIZADOS SIMPLES Y COMPATIBLES ---
-% Implementación básica del comando \diagram usando solo comandos estándar
+% --- COMANDOS PERSONALIZADOS ---
 \newcommand\diagram[2]{%
-  \noindent
-  \fbox{\parbox{2cm}{\centering \textbf{#1}}} \hspace{0.5cm} 
-  \fbox{\parbox{8cm}{#2}}
-  \par\vspace{0.5cm}
+  \schema{\schemabox{#1}}{\schemabox{#2}}%
+}
+\newcommand\esquema[2]{%
+  \schema[closed]{\schemabox{#2}}{\schemabox{#1}}%
 }
 
 % Comando esquema alternativo
@@ -137,5 +138,6 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
