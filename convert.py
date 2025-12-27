@@ -337,23 +337,18 @@ def convertir_songpro(texto):
 
         begin, end = env
 
-        # Línea con acorde ya montada: \[Do]Estrofa
+        # Todo el verso con acordes ya formateados
         contenido_songs = ' \\\\'.join(bloque_actual)
 
-        # Para el esquema sólo quieres el verso completo,
-        # así que no generes otra copia fuera
-        nombre_bloque = "Estrofa"  # o lo que quieras mostrar en la llave
-        verso = r"\[Do]Estrofa"
-
         resultado.extend([
-            r"\beginverse",
-            fr"\diagram{{A}}{{{nombre_bloque}}}",
-            verso,
-            r"\endverse",
+            begin,
+            fr"\diagram{{A}}{{{contenido_songs}}}",
+            end,
         ])
 
         bloque_actual = []
         tipo_bloque = None
+
 
 
 
@@ -757,6 +752,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
