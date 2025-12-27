@@ -344,9 +344,21 @@ def convertir_songpro(texto):
         # MODO RAW
         # =========================
         if raw_mode:
-            bloque_actual.append(escape_latex_raw(linea))
-            i += 1
-            continue
+            # N → cerrar y abrir nuevo RAW
+            if linea == 'N':
+                cerrar_raw()
+                i += 1
+                continue
+
+        # Control → cerrar RAW y REPROCESAR
+        if linea in ('V', 'C', 'M', 'O', 'S'):
+            cerrar_raw()
+            raw_mode = False
+            continue   # ⚠️ NO avanzar i
+
+		bloque_actual.append(escape_latex_raw(linea))
+        i += 1
+        continue
 
         # =========================
         # Sección
@@ -679,6 +691,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
