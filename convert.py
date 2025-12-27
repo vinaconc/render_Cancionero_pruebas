@@ -549,92 +549,6 @@ def compilar_tex_seguro(tex_path):
     finally:
         # **LIMPIEZA CRÍTICA:** Se ejecuta siempre, haya éxito o error.
         cleanup_aux_files()
-@app.route("/", methods=["GET", "POST"])
-def index():
-    # 1. Recuperar el 'error' y el 'texto' de la sesión y LIMPIAR el error
-    error = session.pop('error', None)
-    texto = session.get('texto_guardado', "") # Usamos get() para persistir el texto
-    
-    # Si la solicitud es POST
-    if request.method == "POST":
-        app.logger.info("📥 LLEGÓ POST /")
-        texto = request.form.get("texto", "")
-        app.logger.info(f"Texto recibido: {repr(texto)}")
-        accion = request.form.get("accion")
-        
-        # Siempre leer el texto actual del formulario/archivo para la ejecución actual
-        texto_actual = request.form.get("texto", "") 
-        uploaded_file = request.files.get("archivo")
-        if uploaded_file and uploaded_file.filename:
-            texto_actual = uploaded_file.read().decode("utf-8")
-        
-        texto = texto_actual # 'texto' ahora tiene el input actual
-        
-        # 2. Persistir el texto en la sesión para el caso de éxito y de vuelta del PDF
-        session['texto_guardado'] = texto 
-
-        # 👉 ABRIR
-        if accion == "abrir":
-            try:
-                # [Asumiendo que 'archivo_salida' es una variable global o importada]
-                with open(archivo_salida, "w", encoding="utf-8") as f:
-                    f.write(texto)
-            except Exception:
-                session['error'] = "Error al guardar el archivo" 
-            
-            # PRG: Redirigir siempre.
-            return redirect(url_for('index'))
-
-        # 👉 GENERAR PDF
-        elif accion == "generar_pdf": # <<-- Usar 'elif' para aislar el bloque
-            try:
-                # [Asumiendo que estas funciones y variables están definidas globalmente]
-                indice_tematica_global.clear()
-                contenido_canciones = convertir_songpro(texto)
-                indice_tematica = generar_indice_tematica()
-
-                def reemplazar(match):
-                    return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
-
-                nuevo_tex = re.sub(
-                    r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
-                    reemplazar,
-                    plantilla, # [Asumiendo que 'plantilla' está definida globalmente]
-                    flags=re.S
-                )
-
-                with open(archivo_salida, "w", encoding="utf-8") as f:
-                    f.write(nuevo_tex)
-
-                # Intenta compilar. Si falla, genera una excepción.
-                compilar_tex_seguro(archivo_salida) 
-                
-                pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
-
-                if os.path.exists(pdf_file):
-                    session.pop('texto_guardado', None)
-                    session.pop('error', None)
-                    # Éxito: Enviar el PDF directamente.
-                    return send_file(pdf_file, as_attachment=False)
-                else:
-                    # Si la compilación no lanzó error pero el archivo no existe
-                    session['error'] = "Error de sintaxis en el texto ingresado (archivo PDF no generado)."
-            
-            except Exception as e:
-                # Captura errores de sintaxis o de compilación.
-                app.logger.error(f"Error en procesamiento/compilación: {str(e)}")
-                session['error'] = "Error de sintaxis en el texto ingresado."
-            
-            # Si hubo error (o no se envió el PDF), redirigir para mostrar el alert.
-            session.pop('texto_guardado', None)
-            return redirect(url_for('index'))
-        
-        # Si la acción NO es 'abrir' ni 'generar_pdf' (p. ej., un POST sin acción o descargar)
-        # Aquí puedes manejar la descarga si el JavaScript la permite, o simplemente continuar.
-        # Si la acción es la descarga, se maneja en @app.route("/descargar")
-
-    # GET inicial o POST con error redirigido.
-    return render_template_string(FORM_HTML, texto=texto, error=error)
 
 @app.route("/api/generar_pdf", methods=["POST"])
 def api_generar_pdf():
@@ -790,6 +704,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
