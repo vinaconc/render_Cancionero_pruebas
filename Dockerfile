@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Paquetes mínimos para cancionero (songs, hyperref, ulem, español)
+# Paquetes COMPLETOS para cancionero (incluye ulem.sty, songs, pdfpages, etc.)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         texlive-latex-base \
