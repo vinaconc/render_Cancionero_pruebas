@@ -71,12 +71,9 @@
   \lineskiplimit=35pt
   \lineskip=1pt
 }
-
-% --- COMANDOS PERSONALIZADOS ---
 \newcommand\diagram[2]{%
-  % #1: etiqueta (A, B, etc.)
-  % #2: verso con acordes \[Do]Estrofa
-  \schema{\schemabox{#1}}{#2}%
+  \noindent
+  \textbf{#1}\, \{\, #2%
 }
 
 \newcommand\esquema[2]{%
@@ -133,6 +130,7 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
 
