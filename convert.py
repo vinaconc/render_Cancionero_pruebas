@@ -337,20 +337,21 @@ def convertir_songpro(texto):
 
         begin, end = env
 
-        # TODO: si tienes varias líneas, ajusta aquí
+        # Verso tal como lo entiende songs (con \[Do], etc.)
         contenido_songs = ' \\\\'.join(bloque_actual)
 
-        # Solo acordes+letra dentro de la llave
+        # Solo por seguridad, limpiar caracteres que rompan schemata (\_, %, etc.)
         contenido_schema = sanitize_for_diagram(contenido_songs)
 
         resultado.extend([
             begin,
-            f'\\diagram{{A}}{{{contenido_schema}}}',  # solo Do Estrofa, sin “Estrofa” duplicada
+            f'\\diagram{{A}}{{{contenido_schema}}}',
             end,
         ])
 
         bloque_actual = []
         tipo_bloque = None
+
 
 
 
@@ -752,6 +753,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
