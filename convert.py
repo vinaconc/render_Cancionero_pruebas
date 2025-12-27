@@ -322,7 +322,7 @@ def convertir_songpro(texto):
             continue
 
         # MODO RAW activo
-        if raw_mode:
+       if raw_mode:
             app.logger.info(f"RAW modo: '{linea}'")
             if linea in ('V', 'C', 'O', 'S', 'N'):
                 app.logger.info(f">>> CERRANDO RAW por {linea}")
@@ -331,12 +331,15 @@ def convertir_songpro(texto):
                     contenido_raw = r'\\'.join(bloque_actual) + r'\\'
                     resultado.append(contenido_raw)
                     bloque_actual = []
+                # IMPORTANTE: no vuelvas a procesar esta línea, pero sí avanza al siguiente índice
+                i += 1
                 continue
             else:
                 linea_escapada = escape_latex_raw(linea)
                 bloque_actual.append(linea_escapada)
                 i += 1
                 continue
+
 
         # S Sección
         if linea.startswith('S '):
@@ -704,6 +707,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
