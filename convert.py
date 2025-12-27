@@ -269,11 +269,11 @@ def limpiar_titulo_para_label(titulo):
     return titulo.replace(' ', '-')
 
 def convertir_songpro(texto):
-    referencia_pendiente = None
     lineas = [l.rstrip() for l in texto.split('\n')]
 
     resultado = []
-    bloque_actual = []
+    bloque_actual = []      # versos / coros
+    raw_buffer = []         # SOLO RAW
 
     tipo_bloque = None
     seccion_abierta = False
@@ -286,12 +286,12 @@ def convertir_songpro(texto):
     # =========================
     # CIERRES
     # =========================
-    def cerrar_raw():
-        nonlocal bloque_actual
-        if bloque_actual:
-            resultado.append(r'\\'.join(bloque_actual) + r'\\')
+def cerrar_raw():
+        nonlocal raw_buffer
+        if raw_buffer:
+            resultado.append(r'\\'.join(raw_buffer) + r'\\')
             resultado.append('')
-            bloque_actual = []
+            raw_buffer = []
 
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
@@ -316,7 +316,7 @@ def convertir_songpro(texto):
 
         resultado.extend([
             begin,
-            '\\diagram{A}{' + contenido + '}',
+            contenido,
             end
         ])
 
@@ -340,19 +340,18 @@ def convertir_songpro(texto):
         # MODO RAW
         # =========================
         if raw_mode:
-
             if linea == 'N':
                 cerrar_raw()
-                raw_mode = True
+                raw_mode = True   # sigue en RAW
                 i += 1
                 continue
 
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 cerrar_raw()
                 raw_mode = False
-                continue  # reprocesar
+                continue   # reprocesar
 
-            bloque_actual.append(escape_latex_raw(linea))
+            raw_buffer.append(escape_latex_raw(linea))
             i += 1
             continue
 
@@ -362,14 +361,6 @@ def convertir_songpro(texto):
         if linea == 'N':
             cerrar_bloque()
             raw_mode = True
-            i += 1
-            continue
-
-        # =========================
-        # Línea de acordes
-        # =========================
-        if es_linea_acordes(linea):
-            acordes_pendientes = linea.split()
             i += 1
             continue
 
@@ -417,16 +408,10 @@ def convertir_songpro(texto):
             continue
 
         # =========================
-        # Texto normal (NO RAW)
+        # Texto normal
         # =========================
         if tipo_bloque:
-            linea_procesada = procesar_linea_con_acordes_y_indices(
-                linea,
-                acordes_pendientes,
-                titulo_cancion_actual
-            )
-            bloque_actual.append(linea_procesada)
-            acordes_pendientes = []
+            bloque_actual.append(linea)
 
         i += 1
 
@@ -441,6 +426,7 @@ def convertir_songpro(texto):
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado)
+
 
 def normalizar(palabra):
 	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
@@ -711,6 +697,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
