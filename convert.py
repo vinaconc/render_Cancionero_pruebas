@@ -483,6 +483,7 @@ def convertir_songpro(texto):
     if raw_mode and bloque_actual:
         app.logger.info(">>> FLUSH FINAL RAW <<<")
         resultado.append(r'\\'.join(bloque_actual) + r'\\')
+        resultado.append('')
         bloque_actual = []
         raw_mode = False
 
@@ -763,6 +764,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
