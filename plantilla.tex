@@ -72,8 +72,9 @@
   \lineskip=1pt
 }
 \newcommand\diagram[2]{%
-  \noindent
-  \textbf{#1}\, \{\, #2%
+  % #1: etiqueta A
+  % #2: nombre del bloque, sin acordes, p.ej. "Estrofa"
+  \schema{\schemabox{#1}}{\schemabox{#2}}%
 }
 
 \newcommand\esquema[2]{%
@@ -130,6 +131,7 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
 
