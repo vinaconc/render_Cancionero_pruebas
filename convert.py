@@ -475,7 +475,13 @@ def convertir_songpro(texto):
     if seccion_abierta: resultado.append(r'\end{songs}')
     if raw_mode and bloque_actual:
         resultado.append(r'\\'.join(bloque_actual) + r'\\')
-    
+    if raw_mode and bloque_actual:
+        contenido_raw = r'\\'.join(bloque_actual) + r'\\'
+        resultado.append(contenido_raw)
+        bloque_actual = []
+        raw_mode = False
+
+	
     return '\n'.join(resultado) if resultado else "% No se generó contenido válido"
 
 
@@ -749,6 +755,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
