@@ -179,75 +179,71 @@ def convertir_a_latex(acorde):
 	return acorde
 
 def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#'):
-	resultado = ''
-	idx_acorde = 0
-	palabras = linea.strip().split()
-	notas_americanas_simples = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+    resultado = ''
+    idx_acorde = 0
+    palabras = linea.strip().split()
+    notas_americanas_simples = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
-	for palabra in palabras:
-		es_indexada = palabra.startswith(simbolo)
-		index_real = None
+    for palabra in palabras:
+        es_indexada = palabra.startswith(simbolo)
+        index_real = None
 
         if es_indexada and '=' in palabra:
-             try:
-                 partes = palabra[1:].split('=', 1)
-                 if len(partes) == 2:
-                     base, index_real = partes
-                 else:
-                     base = palabra[1:]
-             except:
-                 base = palabra[1:]
-         else:
-             base = palabra[1:] if es_indexada else palabra
+            try:
+                partes = palabra[1:].split('=', 1)
+                if len(partes) == 2:
+                    base, index_real = partes
+                else:
+                    base = palabra[1:]
+            except:
+                base = palabra[1:]
+        else:
+            base = palabra[1:] if es_indexada else palabra
 
-		if base == '_':
-			if idx_acorde < len(acordes):
-				# Escapar sostenidos en acordes para LaTeX
-				acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
-				resultado += f"\\raisebox{{1.7ex}}{{\\[{acorde_escapado}]}} "
-				idx_acorde += 1
-			else:
-				resultado += '_ '
-			continue
+        if base == '_':
+            if idx_acorde < len(acordes):
+                acorde_escapado = acordes[idx_acorde].replace('#', '\\#')
+                resultado += f"\\raisebox{{1.7ex}}{{\\[{acorde_escapado}]}} "
+                idx_acorde += 1
+            else:
+                resultado += '_ '
+            continue
 
-		if '_' in base:
-			# Aquí base tiene acordes embebidos
-			partes = base.split('_')
-			latex = ''
-			for i, parte in enumerate(partes):
-				if i > 0 and idx_acorde < len(acordes):
-					acorde_convertido = convertir_a_latex(acordes[idx_acorde])
-					# Escapar sostenidos en acordes para LaTeX
-					acorde_escapado = acorde_convertido.replace('#', '\\#')
-					latex += f"\\[{acorde_escapado}]"
-					idx_acorde += 1
-				latex += parte
+        if '_' in base:
+            partes = base.split('_')
+            latex = ''
+            for i, parte in enumerate(partes):
+                if i > 0 and idx_acorde < len(acordes):
+                    acorde_convertido = convertir_a_latex(acordes[idx_acorde])
+                    acorde_escapado = acorde_convertido.replace('#', '\\#')
+                    latex += f"\\[{acorde_escapado}]"
+                    idx_acorde += 1
+                latex += parte
 
-			palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes))
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes))
 
-			if es_indexada:
-				if palabra_para_indice not in indice_tematica_global:
-					indice_tematica_global[palabra_para_indice] = set()
-				titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', (titulo_cancion or "Sin título").strip())
-				indice_tematica_global[palabra_para_indice].add(titulo_indexado)
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+                titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', (titulo_cancion or "Sin título").strip())
+                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
 
-				# Solo agregamos esta palabra, resaltada y con acorde insertado
-				resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
-			else:
-				resultado += latex + ' '
-		else:
-			# Palabra sin acorde embebido
-			palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
-			if es_indexada:
-				if palabra_para_indice not in indice_tematica_global:
-					indice_tematica_global[palabra_para_indice] = set()
-				indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
+                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
+            else:
+                resultado += latex + ' '
+        else:
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+                indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
 
-				resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
-			else:
-				resultado += base + ' '
+                resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
+            else:
+                resultado += base + ' '
 
-	return resultado.strip()
+    return resultado.strip()
+
 
 def escape_latex_raw(linea):
     """Escapa TODOS los caracteres especiales de LaTeX en modo RAW (sección N)"""
@@ -729,6 +725,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
