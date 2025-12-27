@@ -281,6 +281,8 @@ def convertir_songpro(texto):
     titulo_cancion_actual = ""
     raw_mode = False
 
+    acordes_pendientes = []
+
     # =========================
     # CIERRES
     # =========================
@@ -339,20 +341,17 @@ def convertir_songpro(texto):
         # =========================
         if raw_mode:
 
-            # N → cerrar RAW y abrir otro
             if linea == 'N':
                 cerrar_raw()
-                raw_mode = True   # ← CLAVE: N siempre deja RAW activo
+                raw_mode = True
                 i += 1
                 continue
 
-            # Control → cerrar RAW y reprocesar
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 cerrar_raw()
                 raw_mode = False
-                continue   # ⚠️ NO avanzar i
+                continue  # reprocesar
 
-            # Texto RAW normal
             bloque_actual.append(escape_latex_raw(linea))
             i += 1
             continue
@@ -363,6 +362,14 @@ def convertir_songpro(texto):
         if linea == 'N':
             cerrar_bloque()
             raw_mode = True
+            i += 1
+            continue
+
+        # =========================
+        # Línea de acordes
+        # =========================
+        if es_linea_acordes(linea):
+            acordes_pendientes = linea.split()
             i += 1
             continue
 
@@ -410,10 +417,16 @@ def convertir_songpro(texto):
             continue
 
         # =========================
-        # Texto normal
+        # Texto normal (NO RAW)
         # =========================
         if tipo_bloque:
-            bloque_actual.append(linea)
+            linea_procesada = procesar_linea_con_acordes_y_indices(
+                linea,
+                acordes_pendientes,
+                titulo_cancion_actual
+            )
+            bloque_actual.append(linea_procesada)
+            acordes_pendientes = []
 
         i += 1
 
@@ -428,7 +441,6 @@ def convertir_songpro(texto):
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado)
-
 
 def normalizar(palabra):
 	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
@@ -699,6 +711,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
