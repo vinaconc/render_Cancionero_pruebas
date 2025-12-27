@@ -182,23 +182,25 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
     resultado = ''
     idx_acorde = 0
     palabras = linea.strip().split()
-    notas_americanas_simples = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
     for palabra in palabras:
         es_indexada = palabra.startswith(simbolo)
         index_real = None
+        base = palabra
 
-        if es_indexada and '=' in palabra:
-            try:
-                partes = palabra[1:].split('=', 1)
-                if len(partes) == 2:
-                    base, index_real = partes
-                else:
+        if es_indexada:
+            if '=' in palabra:
+                try:
+                    partes = palabra[1:].split('=', 1)
+                    if len(partes) == 2:
+                        base = partes[0]
+                        index_real = partes[1]
+                    else:
+                        base = palabra[1:]
+                except:
                     base = palabra[1:]
-            except:
+            else:
                 base = palabra[1:]
-        else:
-            base = palabra[1:] if es_indexada else palabra
 
         if base == '_':
             if idx_acorde < len(acordes):
@@ -210,9 +212,9 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
             continue
 
         if '_' in base:
-            partes = base.split('_')
+            partes_base = base.split('_')
             latex = ''
-            for i, parte in enumerate(partes):
+            for i, parte in enumerate(partes_base):
                 if i > 0 and idx_acorde < len(acordes):
                     acorde_convertido = convertir_a_latex(acordes[idx_acorde])
                     acorde_escapado = acorde_convertido.replace('#', '\\#')
@@ -220,14 +222,13 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
                     idx_acorde += 1
                 latex += parte
 
-            palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes))
+            palabra_para_indice = limpiar_para_indice(index_real if index_real else ''.join(partes_base))
 
             if es_indexada:
                 if palabra_para_indice not in indice_tematica_global:
                     indice_tematica_global[palabra_para_indice] = set()
                 titulo_indexado = re.sub(r'\s*=[+-]?\d+\s*$', '', (titulo_cancion or "Sin título").strip())
                 indice_tematica_global[palabra_para_indice].add(titulo_indexado)
-
                 resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{latex}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
             else:
                 resultado += latex + ' '
@@ -237,7 +238,6 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
                 if palabra_para_indice not in indice_tematica_global:
                     indice_tematica_global[palabra_para_indice] = set()
                 indice_tematica_global[palabra_para_indice].add(titulo_cancion or "Sin título")
-
                 resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}\\protect\\index[tema]{{{palabra_para_indice}}} "
             else:
                 resultado += base + ' '
@@ -724,6 +724,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
