@@ -74,8 +74,11 @@
 
 % --- COMANDOS PERSONALIZADOS ---
 \newcommand\diagram[2]{%
-  \schema{\schemabox{#1}}{\schemabox{#2}}%
+  % #1: etiqueta (A, B, etc.)
+  % #2: verso con acordes \[Do]Estrofa
+  \schema{\schemabox{#1}}{#2}%
 }
+
 \newcommand\esquema[2]{%
   \schema[closed]{\schemabox{#2}}{\schemabox{#1}}%
 }
@@ -130,6 +133,7 @@
 
 \printindex[titleidx]
 \end{document}
+
 
 
 
