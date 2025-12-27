@@ -313,6 +313,7 @@ def convertir_songpro(texto):
             return
 
         begin, end = env
+		contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
         contenido_diagram = contenido.replace('_', '')
 
         resultado.extend([
@@ -707,6 +708,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
