@@ -245,8 +245,21 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
     return resultado.strip()
 
 def escape_latex_raw(linea):
-    """Escapa SOLO # para LaTeX en modo RAW (sección N)"""
-    return linea.replace('#', r'\#')
+    """
+    Escapa caracteres especiales de LaTeX
+    SOLO para la sección N (RAW)
+    """
+    replacements = {
+        '#': r'\#',
+        '%': r'\%',
+        '&': r'\&',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+    }
+    for k, v in replacements.items():
+        linea = linea.replace(k, v)
+    return linea
 
 def limpiar_titulo_para_label(titulo):
     titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
@@ -324,21 +337,26 @@ def convertir_songpro(texto):
 
         # MODO RAW activo
         if raw_mode:
-             app.logger.info(f"RAW modo: '{linea}'")
-             if linea in ('V', 'C', 'O', 'S', 'N'):
-                 app.logger.info(f">>> CERRANDO RAW por {linea}")
-                 raw_mode = False
-                 if bloque_actual:
-                     contenido_raw = r'\\'.join(bloque_actual) + r'\\'
-                     resultado.append(contenido_raw)
-                     bloque_actual = []
-                 # IMPORTANTE: no vuelvas a procesar esta línea, pero sí avanza al siguiente índice
-                 continue
-             else:
-                 linea_escapada = escape_latex_raw(linea)
-                 bloque_actual.append(linea_escapada)
-                 i += 1
-                 continue
+            app.logger.info(f"RAW modo: '{linea}'")
+
+            # Si aparece un nuevo bloque, cerramos RAW
+            if linea in ('V', 'C', 'O', 'S', 'N'):
+                app.logger.info(f">>> CERRANDO RAW por {linea}")
+                raw_mode = False
+
+                if bloque_actual:
+                    contenido_raw = r'\\'.join(bloque_actual) + r'\\'
+                    resultado.append(contenido_raw)
+                    bloque_actual = []
+
+        # NO consumir esta línea: que el parser normal la procese
+                continue
+
+            # Línea RAW normal
+            linea_escapada = escape_latex_raw(linea)
+            bloque_actual.append(linea_escapada)
+            i += 1
+            continue
 
 
         # S Sección
@@ -707,6 +725,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
