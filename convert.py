@@ -630,7 +630,33 @@ FORM_HTML = """
 <form id="formulario" method="post" enctype="multipart/form-data">
     <textarea id="texto" name="texto" rows="20" cols="80">{{ texto }}</textarea><br>
     <button type="submit">Enviar</button>
+	<input type="file" id="archivoLocal" accept=".txt,.song" hidden>
+	<button type="button" id="btnAbrirLocal" style="margin:5px;">📂 Abrir TXT</button>
 </form>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const textarea = document.getElementById("texto");
+    const archivoLocal = document.getElementById("archivoLocal");
+    const btnAbrirLocal = document.getElementById("btnAbrirLocal");
+
+    // Al hacer click en el botón → abrir selector
+    btnAbrirLocal.addEventListener("click", () => {
+        archivoLocal.click();
+    });
+
+    // Cuando se selecciona un archivo → leerlo
+    archivoLocal.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            textarea.value = ev.target.result;
+        };
+        reader.readAsText(file);
+    });
+});
+</script>
 """
 
 @app.route("/", methods=["GET", "POST"])
@@ -754,6 +780,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
