@@ -316,41 +316,41 @@ def convertir_songpro(texto):
             resultado.append('')
             raw_buffer = []
 
-    def cerrar_bloque():
-        nonlocal bloque_actual, tipo_bloque
+def cerrar_bloque():
+    nonlocal bloque_actual, tipo_bloque
 
-        if not bloque_actual or not tipo_bloque:
-            bloque_actual = []
-            tipo_bloque = None
-            return
-
-        env = {
-            'verse':  ('\\beginverse',  '\\endverse'),
-            'chorus': ('\\beginchorus', '\\endchorus'),
-            'melody': ('\\beginverse',  '\\endverse'),
-        }.get(tipo_bloque)
-
-        if not env:
-            bloque_actual = []
-            tipo_bloque = None
-            return
-
-        begin, end = env
-
-        # Verso tal como lo entiende songs (con \[Do], etc.)
-        contenido_songs = ' \\\\'.join(bloque_actual)
-
-        # Solo por seguridad, limpiar caracteres que rompan schemata (\_, %, etc.)
-        contenido_schema = sanitize_for_diagram(contenido_songs)
-
-        resultado.extend([
-            begin,
-            f'\\diagram{{A}}{{{contenido_schema}}}',
-            end,
-        ])
-
+    if not bloque_actual or not tipo_bloque:
         bloque_actual = []
         tipo_bloque = None
+        return
+
+    env = {
+        'verse':  ('\\beginverse',  '\\endverse'),
+        'chorus': ('\\beginchorus', '\\endchorus'),
+        'melody': ('\\beginverse',  '\\endverse'),
+    }.get(tipo_bloque)
+
+    if not env:
+        bloque_actual = []
+        tipo_bloque = None
+        return
+
+    begin, end = env
+
+    # Línea con acorde ya montada: \[Do]Estrofa
+    contenido_songs = ' \\\\'.join(bloque_actual)
+
+    # Para el esquema sólo quieres el verso completo,
+    # así que no generes otra copia fuera
+    resultado.extend([
+        begin,
+        f'\\diagram{{A}}{{{contenido_songs}}}',
+        end,
+    ])
+
+    bloque_actual = []
+    tipo_bloque = None
+
 
 
 
@@ -753,6 +753,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
