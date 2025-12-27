@@ -316,41 +316,44 @@ def convertir_songpro(texto):
             resultado.append('')
             raw_buffer = []
 
-    def cerrar_bloque():
-        nonlocal bloque_actual, tipo_bloque
+def cerrar_bloque():
+    nonlocal bloque_actual, tipo_bloque
 
-        if not bloque_actual or not tipo_bloque:
-            bloque_actual = []
-            tipo_bloque = None
-            return
-
-        env = {
-            'verse':  ('\\beginverse',  '\\endverse'),
-            'chorus': ('\\beginchorus', '\\endchorus'),
-            'melody': ('\\beginverse',  '\\endverse')
-        }.get(tipo_bloque)
-
-        if not env:
-            bloque_actual = []
-            tipo_bloque = None
-            return
-
-        begin, end = env
-        if len(bloque_actual) == 1:
-            contenido = bloque_actual[0]
-        else:		
-            contenido = ' \\\\'.join(bloque_actual)
-        contenido_diagram = sanitize_for_diagram(contenido)
-
-        resultado.extend([
-            begin,
-            f'\\diagram{{A}}{{{contenido_diagram}}}',
-            end
-        ])
-
+    if not bloque_actual or not tipo_bloque:
         bloque_actual = []
         tipo_bloque = None
+        return
 
+    env = {
+        'verse':  ('\\beginverse',  '\\endverse'),
+        'chorus': ('\\beginchorus', '\\endchorus'),
+        'melody': ('\\beginverse',  '\\endverse'),
+    }.get(tipo_bloque)
+
+    if not env:
+        bloque_actual = []
+        tipo_bloque = None
+        return
+
+    begin, end = env
+
+    # Texto tal como debe verlo songs (con \[Do], etc.)
+    contenido_songs = ' \\\\'.join(bloque_actual)
+
+    # Versión simplificada para el esquema: sin comandos de songs
+    contenido_schema = sanitize_for_diagram(
+        re.sub(r'\\\[[^]]*\]', '', contenido_songs)  # quita \[acorde]
+    )
+
+    resultado.extend([
+        begin,
+        f'\\diagram{{A}}{{{contenido_schema}}}',  # sólo texto
+        contenido_songs,                         # aquí van acordes reales
+        end,
+    ])
+
+    bloque_actual = []
+    tipo_bloque = None
     def cerrar_cancion():
         nonlocal cancion_abierta
         if cancion_abierta:
@@ -749,6 +752,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
