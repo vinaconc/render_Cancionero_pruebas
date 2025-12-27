@@ -360,27 +360,40 @@ def convertir_songpro(texto):
             continue
 
         # MODO RAW activo
-        if raw_mode:
-            app.logger.info(f"RAW modo: '{linea}'")
+# MODO RAW activo
+if raw_mode:
+    app.logger.info(f"RAW modo: '{linea}'")
 
-            # Si aparece un nuevo bloque, cerramos RAW
-            if linea in ('V', 'C', 'O', 'S', 'N'):
-                app.logger.info(f">>> CERRANDO RAW por {linea}")
-                raw_mode = False
+    # 🔁 Otro N: cerrar RAW y seguir en RAW
+    if linea == 'N':
+        app.logger.info(">>> NUEVO BLOQUE RAW <<<")
 
-                if bloque_actual:
-                    contenido_raw = r'\\'.join(bloque_actual) + r'\\'
-                    resultado.append(contenido_raw)
-                    bloque_actual = []
+        if bloque_actual:
+            resultado.append(r'\\'.join(bloque_actual) + r'\\')
+            bloque_actual = []
 
-        # NO consumir esta línea: que el parser normal la procese
-                continue
+        # seguimos en raw_mode
+        i += 1
+        continue
 
-            # Línea RAW normal
-            linea_escapada = escape_latex_raw(linea)
-            bloque_actual.append(linea_escapada)
-            i += 1
-            continue
+    # ⛔ Cambio a otro tipo de bloque: cerrar RAW
+    if linea in ('V', 'C', 'O', 'S'):
+        app.logger.info(f">>> CERRANDO RAW por {linea}")
+        raw_mode = False
+
+        if bloque_actual:
+            resultado.append(r'\\'.join(bloque_actual) + r'\\')
+            bloque_actual = []
+
+        # NO consumir la línea
+        continue
+
+    # 📄 Línea RAW normal
+    linea_escapada = escape_latex_raw(linea)
+    bloque_actual.append(linea_escapada)
+    i += 1
+    continue
+
 
 
         # S Sección
@@ -753,6 +766,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
