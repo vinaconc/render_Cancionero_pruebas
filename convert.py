@@ -665,19 +665,58 @@ FORM_HTML = """
 {% endif %}
 <form id="formulario" method="post" enctype="multipart/form-data">
     <textarea id="texto" name="texto" rows="20" cols="80">{{ texto }}</textarea><br>
-    <button type="submit" name="accion" value="">Enviar</button>
+    <button type="submit">Enviar</button>
 </form>
 """
 
-@app.route("/descargar", methods=["POST"])
-def descargar():
-    texto = request.form.get("texto", "")
-    nombre_archivo = request.form.get("nombre_archivo", "cancionero.txt")
-    return Response(
-        texto,
-        mimetype="text/plain",
-        headers={"Content-Disposition": f"attachment;filename={nombre_archivo}"}
-    )
+@app.route("/", methods=["GET", "POST"])
+def index():
+    error = None
+    texto = session.get('texto_guardado', "")
+
+    if request.method == "POST":
+        try:
+            app.logger.info("📥 LLEGÓ POST /")
+            texto = request.form.get("texto", "")
+            app.logger.info(f"Texto recibido: {repr(texto)}")
+
+            # Guardar texto en sesión por si hay error
+            session['texto_guardado'] = texto
+
+            # Procesar canciones
+            indice_tematica_global.clear()
+            contenido_canciones = convertir_songpro(texto)
+            indice_tematica = generar_indice_tematica()
+
+            def reemplazar(match):
+                return (
+                    match.group(1)
+                    + "\n" + contenido_canciones
+                    + "\n\n" + indice_tematica
+                    + "\n" + match.group(3)
+                )
+
+            nuevo_tex = re.sub(
+                r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
+                reemplazar,
+                plantilla,
+                flags=re.S
+            )
+
+            with open(archivo_salida, "w", encoding="utf-8") as f:
+                f.write(nuevo_tex)
+
+            # Compilar y devolver PDF
+            compilar_tex_seguro(archivo_salida)
+            pdf_file = os.path.splitext(archivo_salida)[0] + ".pdf"
+            return send_file(pdf_file, as_attachment=False)
+
+        except Exception as e:
+            app.logger.error(f"Error generando PDF en '/': {e}")
+            error = "Error generando PDF. Revisa el log de sintaxis en LaTeX."
+
+    # GET inicial o si hubo error en POST
+    return render_template_string(FORM_HTML, texto=texto, error=error)
 
 @app.route("/get/pdf/", methods=["POST"])
 def get_pdf():
@@ -751,6 +790,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
