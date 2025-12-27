@@ -272,21 +272,21 @@ def convertir_songpro(texto):
     lineas = [l.rstrip() for l in texto.split('\n')]
 
     resultado = []
-    bloque_actual = []      # versos / coros
-    raw_buffer = []         # SOLO RAW
+
+    bloque_actual = []      # V / C / M
+    raw_buffer = []         # SOLO RAW (N)
 
     tipo_bloque = None
+    raw_mode = False
+
     seccion_abierta = False
     cancion_abierta = False
     titulo_cancion_actual = ""
-    raw_mode = False
-
-    acordes_pendientes = []
 
     # =========================
     # CIERRES
     # =========================
-def cerrar_raw():
+    def cerrar_raw():
         nonlocal raw_buffer
         if raw_buffer:
             resultado.append(r'\\'.join(raw_buffer) + r'\\')
@@ -295,15 +295,16 @@ def cerrar_raw():
 
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
+
         if not bloque_actual or not tipo_bloque:
             bloque_actual = []
             tipo_bloque = None
             return
 
         env = {
-            'verse': ('\\beginverse', '\\endverse'),
+            'verse':  ('\\beginverse',  '\\endverse'),
             'chorus': ('\\beginchorus', '\\endchorus'),
-            'melody': ('\\beginverse', '\\endverse')
+            'melody': ('\\beginverse',  '\\endverse')
         }.get(tipo_bloque)
 
         if not env:
@@ -316,7 +317,7 @@ def cerrar_raw():
 
         resultado.extend([
             begin,
-            contenido,
+            '\\diagram{A}{' + contenido + '}',
             end
         ])
 
@@ -349,7 +350,7 @@ def cerrar_raw():
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 cerrar_raw()
                 raw_mode = False
-                continue   # reprocesar
+                continue   # reprocesar esta línea
 
             raw_buffer.append(escape_latex_raw(linea))
             i += 1
@@ -365,7 +366,7 @@ def cerrar_raw():
             continue
 
         # =========================
-        # Sección
+        # SECCIÓN
         # =========================
         if linea.startswith('S '):
             cerrar_bloque()
@@ -381,7 +382,7 @@ def cerrar_raw():
             continue
 
         # =========================
-        # Canción
+        # CANCIÓN
         # =========================
         if linea.startswith('O '):
             cerrar_bloque()
@@ -393,7 +394,7 @@ def cerrar_raw():
             continue
 
         # =========================
-        # Bloques
+        # BLOQUES
         # =========================
         if linea == 'V':
             cerrar_bloque()
@@ -407,8 +408,14 @@ def cerrar_raw():
             i += 1
             continue
 
+        if linea == 'M':
+            cerrar_bloque()
+            tipo_bloque = 'melody'
+            i += 1
+            continue
+
         # =========================
-        # Texto normal
+        # TEXTO NORMAL
         # =========================
         if tipo_bloque:
             bloque_actual.append(linea)
@@ -420,12 +427,15 @@ def cerrar_raw():
     # =========================
     if raw_mode:
         cerrar_raw()
+
     cerrar_bloque()
     cerrar_cancion()
+
     if seccion_abierta:
         resultado.append(r'\end{songs}')
 
     return '\n'.join(resultado)
+
 
 
 def normalizar(palabra):
@@ -697,6 +707,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
