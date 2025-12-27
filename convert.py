@@ -392,14 +392,6 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-    # 📄 Línea RAW normal
-    linea_escapada = escape_latex_raw(linea)
-    bloque_actual.append(linea_escapada)
-    i += 1
-    continue
-
-
-
         # S Sección
         if linea.startswith('S '):
             cerrar_bloque()
@@ -770,6 +762,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
