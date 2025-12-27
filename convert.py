@@ -192,6 +192,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
     resultado = ''
     idx_acorde = 0
     linea = linea.replace('_', ' _ ')
+    print("DEBUG LINEA:", repr(linea))
     palabras = linea.strip().split()
 
     for palabra in palabras:
@@ -786,6 +787,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
