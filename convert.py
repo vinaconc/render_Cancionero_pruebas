@@ -281,6 +281,9 @@ def convertir_songpro(texto):
     titulo_cancion_actual = ""
     raw_mode = False
 
+    # =========================
+    # CIERRES
+    # =========================
     def cerrar_raw():
         nonlocal bloque_actual
         if bloque_actual:
@@ -324,41 +327,42 @@ def convertir_songpro(texto):
             resultado.append(r'\endsong')
             cancion_abierta = False
 
+    # =========================
+    # PARSER
+    # =========================
     i = 0
     while i < len(lineas):
         linea = lineas[i].strip()
 
         # =========================
-        # N → RAW (abrir / cerrar)
-        # =========================
-        if linea == 'N':
-            if raw_mode:
-                cerrar_raw()
-            else:
-                cerrar_bloque()
-                raw_mode = True
-            i += 1
-            continue
-
-        # =========================
         # MODO RAW
         # =========================
         if raw_mode:
-		
+
             # N → cerrar RAW y abrir otro
             if linea == 'N':
                 cerrar_raw()
+                raw_mode = True   # ← CLAVE: N siempre deja RAW activo
                 i += 1
                 continue
-		
-            # Control → cerrar RAW y REPROCESAR la línea
+
+            # Control → cerrar RAW y reprocesar
             if linea in ('V', 'C', 'M', 'O', 'S'):
                 cerrar_raw()
                 raw_mode = False
                 continue   # ⚠️ NO avanzar i
-		
+
             # Texto RAW normal
             bloque_actual.append(escape_latex_raw(linea))
+            i += 1
+            continue
+
+        # =========================
+        # N → abrir RAW
+        # =========================
+        if linea == 'N':
+            cerrar_bloque()
+            raw_mode = True
             i += 1
             continue
 
@@ -413,7 +417,9 @@ def convertir_songpro(texto):
 
         i += 1
 
-    # cierres finales
+    # =========================
+    # CIERRES FINALES
+    # =========================
     if raw_mode:
         cerrar_raw()
     cerrar_bloque()
@@ -693,6 +699,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
