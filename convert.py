@@ -342,8 +342,10 @@ def convertir_songpro(texto):
 
         resultado.extend([
             begin,
+            r"\medskip",
             fr"\diagram{{A}}{{{contenido_songs}}}",
             end,
+            r"\medskip",
         ])
 
         bloque_actual = []
@@ -752,6 +754,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
