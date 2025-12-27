@@ -188,10 +188,17 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 		es_indexada = palabra.startswith(simbolo)
 		index_real = None
 
-		if es_indexada and '=' in palabra:
-			base, index_real = palabra[1:].split('=', 1)
-		else:
-			base = palabra[1:] if es_indexada else palabra
+        if es_indexada and '=' in palabra:
+             try:
+                 partes = palabra[1:].split('=', 1)
+                 if len(partes) == 2:
+                     base, index_real = partes
+                 else:
+                     base = palabra[1:]
+             except:
+                 base = palabra[1:]
+         else:
+             base = palabra[1:] if es_indexada else palabra
 
 		if base == '_':
 			if idx_acorde < len(acordes):
@@ -722,6 +729,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
