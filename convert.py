@@ -270,11 +270,13 @@ def limpiar_titulo_para_label(titulo):
 
 def convertir_songpro(texto):
     app.logger.info("🚀 convertir_songpro INICIADO")
-    app.logger.info(f"Texto entrada repr: {repr(texto)}")
+
     referencia_pendiente = None
     lineas = [linea.rstrip() for linea in texto.strip().split('\n')]
+
     resultado = []
     bloque_actual = []
+
     tipo_bloque = None
     seccion_abierta = False
     cancion_abierta = False
@@ -283,42 +285,35 @@ def convertir_songpro(texto):
     raw_mode = False
 
     def entorno(tb):
-        if tb == 'verse':
-            return (r'\beginverse', r'\endverse')
-        elif tb == 'chorus':
-            return (r'\beginchorus', r'\endchorus')
-        elif tb == 'melody':
-            return (r'\beginverse', r'\endverse')
-        return None
+        return {
+            'verse': (r'\beginverse', r'\endverse'),
+            'chorus': (r'\beginchorus', r'\endchorus'),
+            'melody': (r'\beginverse', r'\endverse'),
+        }.get(tb)
 
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque
 
-        # 🔒 No hay bloque válido que cerrar
-        if not bloque_actual or tipo_bloque is None:
+        if not bloque_actual or not tipo_bloque:
             bloque_actual = []
             tipo_bloque = None
             return
 
-        entorno_actual = entorno(tipo_bloque)
-        if entorno_actual is None:
+        env = entorno(tipo_bloque)
+        if not env:
             bloque_actual = []
             tipo_bloque = None
             return
 
-        begin, end = entorno_actual
-        letra_diagrama = {
-            'verse': 'A',
-            'chorus': 'B',
-            'melody': 'C'
-        }.get(tipo_bloque, 'A')
+        begin, end = env
+        letra = {'verse': 'A', 'chorus': 'B', 'melody': 'C'}.get(tipo_bloque, 'A')
 
         contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
-        contenido = contenido.replace('"', '')
-
-        resultado.append(begin)
-        resultado.append('\\diagram{' + letra_diagrama + '}{' + contenido + '}')
-        resultado.append(end)
+        resultado.extend([
+            begin,
+            r'\diagram{' + letra + '}{' + contenido + '}',
+            end
+        ])
 
         bloque_actual = []
         tipo_bloque = None
@@ -328,162 +323,150 @@ def convertir_songpro(texto):
 
         if cancion_abierta:
             resultado.append(r'\endsong')
-
             if referencia_pendiente:
-                resultado.append(
-                    r'\beginscripture{[' + str(referencia_pendiente) + ']}'
-                )
-                resultado.append(r'\endscripture')
+                resultado.extend([
+                    r'\beginscripture{[' + referencia_pendiente + ']}',
+                    r'\endscripture'
+                ])
                 referencia_pendiente = None
-
             cancion_abierta = False
 
+    i = 0
+    while i < len(lineas):
+        linea = lineas[i].strip()
+        app.logger.info(f"DEBUG línea {i}: '{linea}' raw={raw_mode}")
 
-i = 0
-while i < len(lineas):
-    linea = lineas[i].strip()
-    app.logger.info(f"DEBUG línea {i}: '{linea}' raw_mode={raw_mode}")
-
-    # Referencia bíblica
-    if linea.lower().startswith("ref="):
-        contenido = linea[4:].strip()
-        if contenido.startswith('(') and contenido.endswith(')'):
-            referencia_pendiente = contenido[1:-1]
-        i += 1
-        continue
-
-    # Línea vacía
-    if not linea:
-        i += 1
-        continue
-
-
-    # =========================
-    # N → RAW (abrir o nuevo RAW)
-    # =========================
-    if linea == 'N':
-        app.logger.info(">>> N detectado <<<")
-
-        if raw_mode and bloque_actual:
-            resultado.append(r'\\'.join(bloque_actual) + r'\\')
-            resultado.append('')
-            bloque_actual = []
-
-        cerrar_bloque()
-        raw_mode = True
-        i += 1
-        continue
-
-
-    # =========================
-    # MODO RAW activo
-    # =========================
-    if raw_mode:
-        app.logger.info(f"RAW modo: '{linea}'")
-
-        if linea in ('V', 'C', 'O', 'S'):
-            app.logger.info(f">>> CERRANDO RAW por {linea}")
-            raw_mode = False
-
-            if bloque_actual:
-                resultado.append(r'\\'.join(bloque_actual) + r'\\')
-                bloque_actual = []
-
-            continue  # NO consumir la línea
-
-        linea_escapada = escape_latex_raw(linea)
-        bloque_actual.append(linea_escapada)
-        i += 1
-        continue
-
-
-    # =========================
-    # S Sección
-    # =========================
-    if linea.startswith('S '):
-        cerrar_bloque()
-        cerrar_cancion()
-        if seccion_abierta:
-            resultado.append(r'\end{songs}')
-        seccion_abierta = True
-        resultado.append(r'\songchapter{' + linea[2:].strip().title() + '}')
-        resultado.append(r'\begin{songs}{titleidx}')
-        i += 1
-        continue
-
-
-    # =========================
-    # O Canción
-    # =========================
-    if linea.startswith('O '):
-        cerrar_bloque()
-        cerrar_cancion()
-
-        partes = linea[2:].strip().split()
-        transposicion = 0
-        if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
-            transposicion = int(partes[-1].replace('=', ''))
-            partes = partes[:-1]
-
-        titulo_cancion_actual = ' '.join(partes).title()
-        etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
-
-        resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-        resultado.append(rf'\index[titleidx]{{{titulo_cancion_actual}}}')
-        resultado.append(r'\phantomsection')
-        resultado.append(rf'\label{{{etiqueta}}}')
-
-        cancion_abierta = True
-        i += 1
-        continue
-
-
-    # =========================
-    # Título automático
-    # =========================
-    if linea.isupper() and len(linea) > 1 and linea not in ('V', 'C', 'M', 'O', 'S', 'N'):
-        cerrar_bloque()
-        cerrar_cancion()
-
-        titulo_cancion_actual = linea.title()
-        etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
-
-        resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-        resultado.append(r'\phantomsection')
-        resultado.append(rf'\label{{{etiqueta}}}')
-
-        cancion_abierta = True
-        i += 1
-        continue
-
-
-    # =========================
-    # Controles de bloque
-    # =========================
-    if linea == 'V':
-        cerrar_bloque()
-        tipo_bloque = 'verse'
-        i += 1
-        continue
-
-    if linea == 'M':
-        cerrar_bloque()
-        tipo_bloque = 'melody'
-        i += 1
-        continue
-
-    if linea == 'C':
-        if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1].strip()):
-            cerrar_bloque()
-            tipo_bloque = 'chorus'
+        # =========================
+        # Referencia bíblica
+        # =========================
+        if linea.lower().startswith("ref="):
+            ref = linea[4:].strip()
+            if ref.startswith('(') and ref.endswith(')'):
+                referencia_pendiente = ref[1:-1]
             i += 1
             continue
 
+        if not linea:
+            i += 1
+            continue
+
+        # =========================
+        # N → RAW
+        # =========================
+        if linea == 'N':
+            if raw_mode and bloque_actual:
+                resultado.append(r'\\'.join(bloque_actual) + r'\\')
+                resultado.append('')
+                bloque_actual = []
+
+            cerrar_bloque()
+            raw_mode = True
+            i += 1
+            continue
+
+        # =========================
+        # MODO RAW ACTIVO
+        # =========================
+        if raw_mode:
+            if linea in ('V', 'C', 'O', 'S'):
+                raw_mode = False
+                if bloque_actual:
+                    resultado.append(r'\\'.join(bloque_actual) + r'\\')
+                    bloque_actual = []
+                continue  # NO consumir línea
+
+            bloque_actual.append(escape_latex_raw(linea))
+            i += 1
+            continue
+
+        # =========================
+        # Sección
+        # =========================
+        if linea.startswith('S '):
+            cerrar_bloque()
+            cerrar_cancion()
+            if seccion_abierta:
+                resultado.append(r'\end{songs}')
+            seccion_abierta = True
+            resultado.extend([
+                r'\songchapter{' + linea[2:].strip().title() + '}',
+                r'\begin{songs}{titleidx}'
+            ])
+            i += 1
+            continue
+
+        # =========================
+        # Canción
+        # =========================
+        if linea.startswith('O '):
+            cerrar_bloque()
+            cerrar_cancion()
+
+            partes = linea[2:].split()
+            transposicion = 0
+            if partes and re.match(r'^=[+-]?\d+$', partes[-1]):
+                transposicion = int(partes[-1].replace('=', ''))
+                partes = partes[:-1]
+
+            titulo_cancion_actual = ' '.join(partes).title()
+            etiqueta = f"cancion-{limpiar_titulo_para_label(titulo_cancion_actual)}"
+
+            resultado.extend([
+                r'\beginsong{' + titulo_cancion_actual + '}',
+                rf'\index[titleidx]{{{titulo_cancion_actual}}}',
+                r'\phantomsection',
+                rf'\label{{{etiqueta}}}'
+            ])
+
+            cancion_abierta = True
+            i += 1
+            continue
+
+        # =========================
+        # Control de bloques
+        # =========================
+        if linea == 'V':
+            cerrar_bloque()
+            tipo_bloque = 'verse'
+            i += 1
+            continue
+
+        if linea == 'M':
+            cerrar_bloque()
+            tipo_bloque = 'melody'
+            i += 1
+            continue
+
+        if linea == 'C':
+            if i + 1 < len(lineas) and es_linea_acordes(lineas[i + 1]):
+                cerrar_bloque()
+                tipo_bloque = 'chorus'
+                i += 1
+                continue
+
+        # =========================
+        # TEXTO NORMAL
+        # =========================
+        if tipo_bloque:
+            bloque_actual.append(
+                procesar_linea_con_acordes_y_indices(
+                    linea, [], titulo_cancion_actual
+                )
+            )
+
+        i += 1
 
     # =========================
-    # Avance por defecto
+    # CIERRES FINALES
     # =========================
-    i += 1
+    cerrar_bloque()
+    cerrar_cancion()
+
+    if seccion_abierta:
+        resultado.append(r'\end{songs}')
+
+    return '\n'.join(resultado)
+
 
 def normalizar(palabra):
 	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
@@ -754,6 +737,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
