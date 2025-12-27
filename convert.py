@@ -350,30 +350,24 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        # N → MODO RAW
-        if linea == 'N':
-            app.logger.info(">>> ENTRANDO MODO RAW N <<<")
-            cerrar_bloque()
-            raw_mode = True
-            bloque_actual = []
-            i += 1
-            continue
+# N → RAW (entrada o nuevo bloque)
+if linea == 'N':
+    app.logger.info(">>> N detectado <<<")
+
+    # si ya estamos en RAW, cerrar el bloque anterior
+    if raw_mode and bloque_actual:
+        resultado.append(r'\\'.join(bloque_actual) + r'\\')
+        resultado.append('')
+        bloque_actual = []
+
+    cerrar_bloque()
+    raw_mode = True
+    i += 1
+    continue
 
         # MODO RAW activo
         if raw_mode:
             app.logger.info(f"RAW modo: '{linea}'")
-
-            # 🔁 Otro N: cerrar RAW y seguir en RAW
-            if linea == 'N':
-                app.logger.info(">>> NUEVO BLOQUE RAW <<<")
-
-                if bloque_actual:
-                    resultado.append(r'\\'.join(bloque_actual) + r'\\')
-                    resultado.append('')
-                    bloque_actual = []
-
-                i += 1
-                continue
 
             # ⛔ Cambio a otro tipo de bloque: cerrar RAW
             if linea in ('V', 'C', 'O', 'S'):
@@ -764,6 +758,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
