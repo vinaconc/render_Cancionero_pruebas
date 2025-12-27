@@ -243,9 +243,24 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
 	return resultado.strip()
 
 def escape_latex_raw(linea):
-    """Escapa # para LaTeX en modo RAW"""
-    return linea.replace('#', r'\#')
-# ... (todo tu código anterior se mantiene igual hasta dentro de convertir_songpro)
+    """Escapa TODOS los caracteres especiales de LaTeX en modo RAW (sección N)"""
+    escapes = {
+        '#': r'\#',
+        '%': r'\%',
+        '_': r'\_',
+        '&': r'\&',
+        '{': r'\{',
+        '}': r'\}',
+        '$': r'\$',
+        '^': r'\^{}',
+        '~': r'\~{}',
+        '\\': r'\textbackslash{}'
+    }
+    result = []
+    for char in linea:
+        result.append(escapes.get(char, char))
+    return ''.join(result)
+
 
 def limpiar_titulo_para_label(titulo):
     titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
@@ -707,6 +722,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
