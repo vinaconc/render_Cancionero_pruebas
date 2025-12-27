@@ -327,7 +327,7 @@ def convertir_songpro(texto):
         env = {
             'verse':  ('\\beginverse',  '\\endverse'),
             'chorus': ('\\beginchorus', '\\endchorus'),
-            'melody': ('\\beginverse',  '\\endverse')
+            'melody': ('\\beginverse',  '\\endverse'),
         }.get(tipo_bloque)
 
         if not env:
@@ -337,23 +337,24 @@ def convertir_songpro(texto):
 
         begin, end = env
 
-        # Texto tal como debe verlo songs (con \[Do], etc.)
+        # Texto que ve songs, con acordes tipo \[Do]
         contenido_songs = ' \\\\'.join(bloque_actual)
 
-        # Versión simplificada para el esquema: sin comandos de songs
+        # Versión limpia para el título de la llave (si quieres solo “Estrofa”)
         contenido_schema = sanitize_for_diagram(
             re.sub(r'\\\[[^]]*\]', '', contenido_songs)  # quita \[acorde]
         )
 
         resultado.extend([
             begin,
-            f'\\diagram{{A}}{{{contenido_schema}}}',  # sólo texto
-            contenido_songs,                          # aquí van acordes reales
+            # TODO: ajusta si quieres que A sea la tonalidad
+            f'\\diagram{{A}}{{{contenido_schema}\\\\{contenido_songs}}}',
             end,
         ])
 
         bloque_actual = []
         tipo_bloque = None
+
 
     def cerrar_cancion():
 	        nonlocal cancion_abierta
@@ -753,6 +754,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
