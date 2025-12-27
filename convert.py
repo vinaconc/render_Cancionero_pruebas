@@ -261,6 +261,29 @@ def escape_latex_raw(linea):
         linea = linea.replace(k, v)
     return linea
 
+def sanitize_for_diagram(texto: str) -> str:
+    """
+    Limpia texto que irá dentro de \\diagram (schemata):
+    - elimina '_' usados como placeholders
+    - escapa caracteres especiales típicos de LaTeX
+    """
+    replacements = {
+        '\\': r'\textbackslash{}',
+        '{': r'\{',
+        '}': r'\}',
+        '#': r'\#',
+        '$': r'\$',
+        '%': r'\%',
+        '&': r'\&',
+        '~': r'\textasciitilde{}',
+        '^': r'\textasciicircum{}',
+        '_': ' ',  # en el esquema no queremos guiones bajos
+    }
+    out = []
+    for ch in texto:
+        out.append(replacements.get(ch, ch))
+    return ''.join(out)
+
 def limpiar_titulo_para_label(titulo):
     titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
     titulo = unicodedata.normalize('NFD', titulo)
@@ -314,7 +337,7 @@ def convertir_songpro(texto):
 
         begin, end = env
         contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
-        contenido_diagram = contenido.replace('_', '')
+        contenido_diagram = sanitize_for_diagram(contenido)
 
         resultado.extend([
             begin,
@@ -708,6 +731,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
