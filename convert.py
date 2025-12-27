@@ -324,13 +324,18 @@ def convertir_songpro(texto):
         tipo_bloque = None
 
 def cerrar_cancion():
-    nonlocal cancion_abierta, referencia_pendiente
+    global cancion_abierta, referencia_pendiente
+
     if cancion_abierta:
         resultado.append(r'\endsong')
+
         if referencia_pendiente:
-            resultado.append('\\beginscripture{[' + str(referencia_pendiente) + ']}')
+            resultado.append(
+                r'\beginscripture{[' + str(referencia_pendiente) + ']}'
+            )
             resultado.append(r'\endscripture')
             referencia_pendiente = None
+
         cancion_abierta = False
 
 
@@ -749,6 +754,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
