@@ -426,6 +426,21 @@ def convertir_songpro(texto):
         if linea == 'V':
             cerrar_bloque()
             tipo_bloque = 'verse'
+            if i + 2 < len(lineas):
+                siguiente = lineas[i+1].strip()
+                siguiente2 = lineas[i+2].strip()
+				# Caso especial: V / C / _Estrofa   --> C es acorde Do
+                if siguiente == 'C' and siguiente2.startswith('_'):
+                    # construimos la línea con acorde Do sobre el primer '_'
+                    acordes = ['C']  # o 'Do' según quieras
+                    linea_estrofa = siguiente2
+                    linea_procesada = procesar_linea_con_acordes_y_indices(
+                        linea_estrofa, acordes, titulo_cancion_actual
+                    )
+                    bloque_actual.append(linea_procesada)
+                    # saltar las dos líneas ya consumidas
+                    i += 3
+                    continue
             i += 1
             continue
 
@@ -734,6 +749,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
