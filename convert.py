@@ -337,23 +337,21 @@ def convertir_songpro(texto):
 
         begin, end = env
 
-        # Texto que ve songs, con acordes tipo \[Do]
+        # TODO: si tienes varias líneas, ajusta aquí
         contenido_songs = ' \\\\'.join(bloque_actual)
 
-        # Versión limpia para el título de la llave (si quieres solo “Estrofa”)
-        contenido_schema = sanitize_for_diagram(
-            re.sub(r'\\\[[^]]*\]', '', contenido_songs)  # quita \[acorde]
-        )
+        # Solo acordes+letra dentro de la llave
+        contenido_schema = sanitize_for_diagram(contenido_songs)
 
         resultado.extend([
             begin,
-            # TODO: ajusta si quieres que A sea la tonalidad
-            f'\\diagram{{A}}{{{contenido_schema}\\\\{contenido_songs}}}',
+            f'\\diagram{{A}}{{{contenido_schema}}}',  # solo Do Estrofa, sin “Estrofa” duplicada
             end,
         ])
 
         bloque_actual = []
         tipo_bloque = None
+
 
 
     def cerrar_cancion():
@@ -754,6 +752,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
