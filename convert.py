@@ -287,18 +287,33 @@ def convertir_songpro(texto):
         elif tb == 'chorus': return (r'\beginchorus', r'\endchorus')
         elif tb == 'melody': return (r'\beginverse', r'\endverse')
 
-    def cerrar_bloque():
-        nonlocal bloque_actual, tipo_bloque
-        if bloque_actual:
-            begin, end = entorno(tipo_bloque)
-            letra_diagrama = {'verse': 'A', 'chorus': 'B', 'melody': 'C'}.get(tipo_bloque, 'A')
-            contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
-            contenido = contenido.replace('"', '')
-            resultado.append(begin)
-            resultado.append('\\diagram{' + letra_diagrama + '}{' + contenido + '}')
-            resultado.append(end)
+   def cerrar_bloque():
+    nonlocal bloque_actual, tipo_bloque
+
+    # 🔒 No hay bloque válido que cerrar
+    if not bloque_actual or tipo_bloque is None:
         bloque_actual = []
         tipo_bloque = None
+        return
+
+    entorno_actual = entorno(tipo_bloque)
+    if entorno_actual is None:
+        bloque_actual = []
+        tipo_bloque = None
+        return
+
+    begin, end = entorno_actual
+    letra_diagrama = {'verse': 'A', 'chorus': 'B', 'melody': 'C'}.get(tipo_bloque, 'A')
+    contenido = ' \\\\'.join(bloque_actual) + ' \\\\'
+    contenido = contenido.replace('"', '')
+
+    resultado.append(begin)
+    resultado.append('\\diagram{' + letra_diagrama + '}{' + contenido + '}')
+    resultado.append(end)
+
+    bloque_actual = []
+    tipo_bloque = None
+
 
     def cerrar_cancion():
         nonlocal cancion_abierta, referencia_pendiente
@@ -725,6 +740,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
