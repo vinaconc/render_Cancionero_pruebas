@@ -369,6 +369,7 @@ def convertir_songpro(texto):
 
                 if bloque_actual:
                     resultado.append(r'\\'.join(bloque_actual) + r'\\')
+					resultado.append('')
                     bloque_actual = []
 
                 i += 1
@@ -762,6 +763,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
