@@ -356,6 +356,12 @@ def convertir_songpro(texto):
 
         begin, end = env
 
+        diagrama_id = {
+            'verse':  'A',
+            'chorus': 'B',
+            'melody': 'C',   # o lo que quieras
+    }.get(tipo_bloque, 'A')
+
         # Todo el verso con acordes ya formateados
         contenido_songs = ' \\\\'.join(bloque_actual)
 
@@ -821,6 +827,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
