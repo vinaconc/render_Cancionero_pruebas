@@ -466,7 +466,9 @@ def convertir_songpro(texto):
             tipo_bloque = 'melody'
             i += 1
             continue
-
+        if es_linea_acordes(linea):
+            i += 1
+            continue
         # =========================
         # TEXTO NORMAL
         # =========================
@@ -797,6 +799,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
