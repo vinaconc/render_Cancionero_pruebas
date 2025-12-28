@@ -310,7 +310,7 @@ def limpiar_titulo_para_label(titulo):
     return titulo.replace(' ', '-')
 
 def convertir_songpro(texto):
-	transposicion_actual = 0
+    transposicion_actual = 0
     lineas = [l.rstrip() for l in texto.split('\n')]
 
     resultado = []
@@ -819,6 +819,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
