@@ -267,6 +267,18 @@ def escape_latex_raw(linea):
         linea = linea.replace(k, v)
     return linea
 
+def extraer_transposicion(titulo_raw):
+    """
+    Extrae transposición del tipo '=+2' o '=-2' al final del título.
+    Retorna: (titulo_limpio, semitonos)
+    """
+    match = re.search(r'\s*=\s*([+-]?\d+)\s*$', titulo_raw)
+    if match:
+        semitonos = int(match.group(1))
+        titulo_limpio = re.sub(r'\s*=\s*[+-]?\d+\s*$', '', titulo_raw).strip()
+        return titulo_limpio, semitonos
+    return titulo_raw.strip(), 0
+
 def sanitize_for_diagram(texto: str) -> str:
     """
     Limpia texto que irá dentro de \\diagram (schemata):
@@ -298,6 +310,7 @@ def limpiar_titulo_para_label(titulo):
     return titulo.replace(' ', '-')
 
 def convertir_songpro(texto):
+	transposicion_actual = 0
     lineas = [l.rstrip() for l in texto.split('\n')]
 
     resultado = []
@@ -426,6 +439,9 @@ def convertir_songpro(texto):
             cerrar_bloque()
             cerrar_cancion()
             titulo_cancion_actual = linea[2:].strip().title()
+            titulo_limpio, transpo = extraer_transposicion(titulo_raw)
+            titulo_cancion_actual = titulo_limpio.title()
+            transposicion_actual = transpo
             resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
             cancion_abierta = True
             i += 1
@@ -475,7 +491,11 @@ def convertir_songpro(texto):
         if tipo_bloque:
             # Si la línea anterior era de acordes → procesar
             if i > 0 and es_linea_acordes(lineas[i-1]):
-                acordes = lineas[i-1].split()
+                acordes = [
+                    transportar_acorde(a, transposicion_actual)
+                    if transposicion_actual != 0 else a
+                    for a in lineas[i-1].split()
+                ]
                 linea_procesada = procesar_linea_con_acordes_y_indices(
                     linea,
                     acordes,
@@ -799,6 +819,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
