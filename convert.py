@@ -435,19 +435,19 @@ def convertir_songpro(texto):
         # =========================
         # CANCIÓN
         # =========================
-       if linea.startswith('O '):
-           cerrar_bloque()
-           cerrar_cancion()
+        if linea.startswith('O '):
+            cerrar_bloque()
+            cerrar_cancion()
 
-           titulo_raw = linea[2:].strip()
-           titulo_limpio, transposicion_actual = extraer_transposicion(titulo_raw)
+            titulo_raw = linea[2:].strip()
+            titulo_limpio, transposicion_actual = extraer_transposicion(titulo_raw)
 
-           titulo_cancion_actual = titulo_limpio.title()
+            titulo_cancion_actual = titulo_limpio.title()
 
-           resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
-           cancion_abierta = True
-           i += 1
-           continue
+            resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+            cancion_abierta = True
+            i += 1
+            continue
 
         # =========================
         # BLOQUES
@@ -821,6 +821,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
