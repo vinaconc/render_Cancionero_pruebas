@@ -368,7 +368,7 @@ def convertir_songpro(texto):
         resultado.extend([
             begin,
             r"\medskip",
-            fr"\diagram{{A}}{{{contenido_songs}}}",
+            fr"\diagram{{diagrama_id}}{{{contenido_songs}}}",
             end,
             r"\medskip",
         ])
@@ -827,6 +827,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
