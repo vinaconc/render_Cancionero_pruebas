@@ -734,7 +734,7 @@ def index():
             # Procesar canciones
             indice_tematica_global.clear()
             contenido_canciones = convertir_songpro(texto)
-            indice_tematica = generar_indice_tematica()
+            
 
             def reemplazar(match):
                 return (
@@ -771,7 +771,7 @@ def get_pdf():
     try:
         texto = request.data.decode("utf-8")
         contenido_canciones = convertir_songpro(texto)
-        indice_tematica = generar_indice_tematica()
+        
 
         def reemplazar(match):
             """Función para reemplazar el marcador en la plantilla LaTeX."""
@@ -838,6 +838,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
