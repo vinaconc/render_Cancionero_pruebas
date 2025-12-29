@@ -341,23 +341,24 @@ def convertir_songpro(texto):
         tokens = linea.split()
 
         # B debe convivir con letra
-        if 'B' not in tokens or len(tokens) == 1:
+        if not any(t.startswith('B') for t in tokens) or len(tokens) == 1:
             return linea
 
         salida = []
         for t in tokens:
-            if t == 'B':
+            # Caso B, B3, B4, etc.
+            if (t.startswith('B') and t[1:].isdigit()) or t == 'B':
                 if not repeat_abierto:
                     salida.append(r'\lrep')
                     repeat_abierto = True
                 else:
-                    salida.append(r'\rrep \rep{2}')
+                    rep_num = t[1:] if t != 'B' else '2'
+                    salida.append(rf'\rrep \rep{{{rep_num}}}')
                     repeat_abierto = False
             else:
                 salida.append(t)
 
         return ' '.join(salida)
-
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque, repeat_abierto
 
@@ -856,6 +857,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
