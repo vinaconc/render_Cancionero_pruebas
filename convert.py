@@ -525,24 +525,25 @@ def convertir_songpro(texto):
         # TEXTO NORMAL
         # =========================
         if tipo_bloque:
-            linea = linea.replace('_', '')
             linea = procesar_repeticiones_en_letra(linea)
-            # Si la línea anterior era de acordes → procesar
+
             if i > 0 and es_linea_acordes(lineas[i-1]):
                 acordes = [
                     transportar_acorde(a, transposicion_actual)
                     if transposicion_actual != 0 else a
                     for a in lineas[i-1].split()
-                ]
+               ]
+
                 linea_procesada = procesar_linea_con_acordes_y_indices(
-                    linea,
+                    linea,          # ← aquí todavía están los _
                     acordes,
                     titulo_cancion_actual
                 )
                 bloque_actual.append(linea_procesada)
             else:
-                bloque_actual.append(linea)
-    
+                bloque_actual.append(linea.replace('_', ''))
+
+		
 
         i += 1
 
@@ -837,6 +838,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
