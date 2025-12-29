@@ -740,7 +740,6 @@ def index():
                 return (
                     match.group(1)
                     + "\n" + contenido_canciones
-                    + "\n\n" + indice_tematica
                     + "\n" + match.group(3)
                 )
 
@@ -838,6 +837,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
