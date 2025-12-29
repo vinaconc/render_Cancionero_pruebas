@@ -587,24 +587,6 @@ def limpiar_titulo_para_label(titulo):
 	titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
 	return titulo.replace(' ', '-')
 
-def generar_indice_tematica():
-	if not indice_tematica_global:
-		return ""
-
-	resultado = [r"\section*{Índice Temático}", r"\begin{itemize}"]
-
-	for palabra in sorted(indice_tematica_global.keys(), key=normalizar):
-		canciones = sorted(list(indice_tematica_global[palabra]), key=normalizar)
-		enlaces = [
-			rf"\hyperref[cancion-{limpiar_titulo_para_label(c)}]" + f"{{{c}}}"
-			for c in canciones
-		]
-		resultado.append(rf"  \item \textbf{{{palabra.title()}}} --- {', '.join(enlaces)}")
-
-	resultado.append(r"\end{itemize}")
-	return '\n'.join(resultado)
-
-
 texto_ejemplo = """
  """
 
@@ -641,7 +623,6 @@ def compilar_tex_seguro(tex_path):
         # makeindex (si aplica)
         base = os.path.splitext(tex_file)[0]
         for entrada, salida in [
-            (f"{base}.idx", None),
             (f"{base}.tema.idx", f"{base}.tema.ind"),
             (f"{base}.cbtitle", f"{base}.cbtitle.ind"),
         ]:
@@ -857,6 +838,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
