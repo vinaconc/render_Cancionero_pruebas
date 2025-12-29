@@ -774,7 +774,7 @@ def get_pdf():
 
         def reemplazar(match):
             """Función para reemplazar el marcador en la plantilla LaTeX."""
-            return match.group(1) + "\n" + contenido_canciones + "\n\n" + indice_tematica + "\n" + match.group(3)
+            return match.group(1) + "\n" + contenido_canciones + "\n" + match.group(3)
 
         nuevo_tex = re.sub(
             r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
@@ -837,6 +837,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
