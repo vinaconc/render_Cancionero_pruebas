@@ -311,6 +311,7 @@ def limpiar_titulo_para_label(titulo):
 
 def convertir_songpro(texto):
     transposicion_actual = 0
+    repeat_abierto = False
     lineas = [l.rstrip() for l in texto.split('\n')]
 
     resultado = []
@@ -334,9 +335,31 @@ def convertir_songpro(texto):
             resultado.append(r'\\'.join(raw_buffer) + r'\\')
             resultado.append('')
             raw_buffer = []
+    def procesar_repeticiones_en_letra(linea):
+        nonlocal repeat_abierto
+
+        tokens = linea.split()
+
+        # B debe convivir con letra
+        if 'B' not in tokens or len(tokens) == 1:
+            return linea
+
+        salida = []
+        for t in tokens:
+            if t == 'B':
+                if not repeat_abierto:
+                    salida.append(r'\lrep')
+                    repeat_abierto = True
+                else:
+                    salida.append(r'\rrep \rep{2}')
+                    repeat_abierto = False
+            else:
+                salida.append(t)
+
+        return ' '.join(salida)
 
     def cerrar_bloque():
-        nonlocal bloque_actual, tipo_bloque
+        nonlocal bloque_actual, tipo_bloque, repeat_abierto
 
         if not bloque_actual or not tipo_bloque:
             bloque_actual = []
@@ -353,6 +376,10 @@ def convertir_songpro(texto):
             bloque_actual = []
             tipo_bloque = None
             return
+
+        if repeat_abierto:
+            bloque_actual.append(r'\rrep \rep{2}')
+            repeat_abierto = False
 
         begin, end = env
 
@@ -497,6 +524,8 @@ def convertir_songpro(texto):
         # TEXTO NORMAL
         # =========================
         if tipo_bloque:
+            linea = linea.replace('_', '')
+            linea = procesar_repeticiones_en_letra(linea)
             # Si la línea anterior era de acordes → procesar
             if i > 0 and es_linea_acordes(lineas[i-1]):
                 acordes = [
@@ -511,8 +540,8 @@ def convertir_songpro(texto):
                 )
                 bloque_actual.append(linea_procesada)
             else:
-                # Línea sin acordes: escapar _
-                bloque_actual.append(linea.replace('_', ''))
+                bloque_actual.append(linea)
+    
 
         i += 1
 
@@ -827,6 +856,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
