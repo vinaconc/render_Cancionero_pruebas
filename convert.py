@@ -201,60 +201,60 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
         index_real = None
 
             # --- Extraer base e índice explícito ---
-            if es_indexada:
-                contenido = palabra[1:]
-                if '=' in contenido:
-                    base_raw, index_real = contenido.split('=', 1)
-                else:
-                    base_raw = contenido
+        if es_indexada:
+            contenido = palabra[1:]
+            if '=' in contenido:
+                base_raw, index_real = contenido.split('=', 1)
             else:
-                base_raw = palabra
+                base_raw = contenido
+        else:
+            base_raw = palabra
 
-            partes = base_raw.split('_')
+        partes = base_raw.split('_')
 
-            # --- Registrar índice UNA sola vez por palabra ---
-            indice_ya_registrado = False
-            if es_indexada:
-                clave_indice = limpiar_para_indice(index_real or base_raw)
-                if clave_indice:
-                    if clave_indice not in indice_tematica_global:
-                        indice_tematica_global[clave_indice] = set()
+        # --- Registrar índice UNA sola vez por palabra ---
+        indice_ya_registrado = False
+        if es_indexada:
+            clave_indice = limpiar_para_indice(index_real or base_raw)
+            if clave_indice:
+                if clave_indice not in indice_tematica_global:
+                    indice_tematica_global[clave_indice] = set()
 
-                    titulo_indexado = re.sub(
-                        r'\s*=[+-]?\d+\s*$',
-                        '',
-                        (titulo_cancion or "Sin título").strip()
-                    )
+                titulo_indexado = re.sub(
+                    r'\s*=[+-]?\d+\s*$',
+                    '',
+                    (titulo_cancion or "Sin título").strip()
+                )
 
-                    indice_tematica_global[clave_indice].add(titulo_indexado)
+                indice_tematica_global[clave_indice].add(titulo_indexado)
 
-                    indice_ya_registrado = True
+                indice_ya_registrado = True
 
             # --- Construcción visual + acordes ---
-            for i, parte in enumerate(partes):
-                # Insertar acorde antes de cada parte excepto la primera
-                if i > 0:
-                    if idx_acorde >= len(acordes):
-                        raise RuntimeError(
-                            f"Error: hay más '_' que acordes en la línea:\n{linea}"
-                        )
-                    acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', '\\#')
-                    resultado += f"\\[{acorde}]"
-                    idx_acorde += 1
-
-                if not parte:
-                    continue
-
-                if es_indexada:
-                    resultado += (
-                        f"\\textcolor{{blue!50!black}}{{\\textbf{{{parte}}}}}"
+        for i, parte in enumerate(partes):
+            # Insertar acorde antes de cada parte excepto la primera
+            if i > 0:
+                if idx_acorde >= len(acordes):
+                    raise RuntimeError(
+                        f"Error: hay más '_' que acordes en la línea:\n{linea}"
                     )
-                else:
-                    resultado += parte
+                acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', '\\#')
+                resultado += f"\\[{acorde}]"
+                idx_acorde += 1
 
-            resultado += ' '
+            if not parte:
+                continue
 
-        return resultado.rstrip()
+            if es_indexada:
+                resultado += (
+                    f"\\textcolor{{blue!50!black}}{{\\textbf{{{parte}}}}}"
+                )
+            else:
+                resultado += parte
+
+        resultado += ' '
+
+    return resultado.rstrip()
 
 def escape_latex_raw(linea):
     """
@@ -844,6 +844,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
