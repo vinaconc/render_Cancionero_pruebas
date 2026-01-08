@@ -113,6 +113,7 @@ def limpiar_para_indice(palabra):
     #uni_dad     → registra "unidad"
     #uni_dos=unidad → registra "unidad"
     """
+    registro = ""
     # 1. Quitar acordes del inicio (Do#, Re#m)
     limpia = re.sub(r'^#', '', palabra)
     
@@ -853,6 +854,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
