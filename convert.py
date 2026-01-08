@@ -108,28 +108,7 @@ def transportar_acorde(acorde, semitonos):
 
 
 def limpiar_para_indice(palabra):
-    """
-    REGLAS:
-    #uni_dad     → registra "unidad"
-    #uni_dos=unidad → registra "unidad"
-    """
-    registro = ""
-    # 1. Quitar acordes del inicio (Do#, Re#m)
-    limpia = re.sub(r'^#', '', palabra)
-    
-    # 2. Si hay '=', tomar DESPUÉS del =
-    if '=' in limpia:
-        limpia = limpia.split('=', 1)[1]
-    limpia = re.sub(r'_', '', limpia)
-    
-    # 3. Normalizar SOLO para registro (sin tildes, minúsculas)
-
-    registro = unicodedata.normalize('NFD', registro.lower())
-    registro = ''.join(c for c in registro if unicodedata.category(c) != 'Mn')
-    registro = re.sub(r'[^a-z0-9]', '', registro)
-    
-    return re.sub(r'[^a-z0-9]', '', registro)
-
+	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
 
 def es_linea_acordes(linea):
 	tokens = linea.split()
@@ -200,47 +179,76 @@ def convertir_a_latex(acorde):
 	return acorde
 
 def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#'):
+    """
+    Procesa una línea de texto con placeholders '_' para acordes
+    y palabras indexadas con '#'.
+
+    Reglas:
+    - Cada '_' consume exactamente un acorde
+    - '_' NUNCA aparece en la salida LaTeX
+    - Si hay más '_' que acordes → RuntimeError
+    """
+
     resultado = ''
     idx_acorde = 0
-    linea_safe = linea.replace('_', ' _ ')
-    palabras = linea_safe.strip().split()
+    linea = linea.replace('_', ' _ ')
+    palabras = linea.strip().split()
 
     for palabra in palabras:
         es_indexada = palabra.startswith(simbolo)
-        base = palabra
         index_real = None
+        base = palabra
 
+        # -------------------------
+        # Indexación temática
+        # -------------------------
         if es_indexada:
             contenido = palabra[1:]
             if '=' in contenido:
                 base, index_real = contenido.split('=', 1)
             else:
                 base = contenido
-            base = re.sub(r'_', '', base)  # Visual limpia
 
-        indice_key = limpiar_para_indice(index_real if index_real else base)
+        # -------------------------
+        # Placeholder de acorde
+        # -------------------------
+        if base == '_':
+            if idx_acorde >= len(acordes):
+                raise RuntimeError(
+                    f"Error: hay más '_' que acordes en la línea:\n{linea}"
+                )
 
-        # ACORDES PRIMERO
-        if base.strip() == '_':
-            if idx_acorde < len(acordes):
-                acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', r'\#')
-                resultado += '\\[' + acorde + ']'
-                idx_acorde += 1
+            acorde_convertido = convertir_a_latex(acordes[idx_acorde])
+            acorde_escapado = acorde_convertido.replace('#', '\\#')
+            resultado += f"\\[{acorde_escapado}]"
+            idx_acorde += 1
             continue
 
-        # ÍNDICE + LaTeX
-        if es_indexada and indice_key:
-            if indice_key not in indice_tematica_global:
-                indice_tematica_global[indice_key] = set()
-            titulo_clean = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo_cancion or "Sin título")
-            indice_tematica_global[indice_key].add(titulo_clean)
-            
-            resultado += f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}\\protect\\index[tema]{{{indice_key}!{titulo_cancion}}} "
+        # -------------------------
+        # Texto normal (sin '_')
+        # -------------------------
+        palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
+
+        if es_indexada:
+            if palabra_para_indice not in indice_tematica_global:
+                indice_tematica_global[palabra_para_indice] = set()
+
+            titulo_indexado = re.sub(
+                r'\s*=[+-]?\d+\s*$',
+                '',
+                (titulo_cancion or "Sin título").strip()
+            )
+
+            indice_tematica_global[palabra_para_indice].add(titulo_indexado)
+
+            resultado += (
+                f"\\textcolor{{blue!50!black}}{{\\textbf{{{base}}}}}"
+                f"\\protect\\index[tema]{{{palabra_para_indice}!{titulo_cancion}}} "
+            )
         else:
             resultado += base + ' '
 
     return resultado.rstrip()
-
 
 def escape_latex_raw(linea):
     """
@@ -830,14 +838,6 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
-
-
-
-
-
-
-
 
 
 
