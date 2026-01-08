@@ -108,7 +108,28 @@ def transportar_acorde(acorde, semitonos):
 
 
 def limpiar_para_indice(palabra):
-	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
+    """
+    REGLAS:
+    #uni_dad     → registra "unidad"
+    #uni_dos=unidad → registra "unidad"
+    """
+    # 1. Quitar acordes del inicio (Do#, Re#m)
+    limpia = re.sub(r'^#[A-Ga-g#b/?m\\d]*(\s|$)', '#', palabra)
+    
+    # 2. Si hay '=', tomar DESPUÉS del =
+    if '=' in limpia:
+        limpia = limpia.split('=', 1)[1]
+        if palabra.startswith('#'):
+            limpia = '#' + limpia  # Restaurar #
+    
+    # 3. Normalizar SOLO para registro (sin tildes, minúsculas)
+    registro = re.sub(r'^#', '', limpia)  # Temporal sin #
+    registro = unicodedata.normalize('NFD', registro.lower())
+    registro = ''.join(c for c in registro if unicodedata.category(c) != 'Mn')
+    registro = re.sub(r'[^a-z0-9]', '', registro)
+    
+    return registro  # "unidad"
+
 
 def es_linea_acordes(linea):
 	tokens = linea.split()
@@ -202,12 +223,14 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
         # -------------------------
         # Indexación temática
         # -------------------------
+
         if es_indexada:
             contenido = palabra[1:]
             if '=' in contenido:
                 base, index_real = contenido.split('=', 1)
             else:
                 base = contenido
+        palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
 
         # -------------------------
         # Placeholder de acorde
@@ -838,6 +861,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
