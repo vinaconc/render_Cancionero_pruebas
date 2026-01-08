@@ -177,84 +177,71 @@ def convertir_a_latex(acorde):
 		return raiz_convertida + extension
 
 	return acorde
-
-def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo='#'):
+def procesar_linea_con_acordes_y_indices(
+    linea, acordes, titulo_cancion=None, simbolo="#"
+):
     """
-    Procesa una línea de texto con placeholders '_' para acordes
-    y palabras indexadas con '#'.
-
-    Reglas:
-    - Cada '_' consume exactamente un acorde
-    - '_' NUNCA aparece en la salida LaTeX
-    - Las palabras con '#' se indexan UNA sola vez
-    - '#u_ni_da=Unidad' → índice 'unidad', visual con sílabas
-    - Nunca retorna None
+    Procesa una línea completa SongPro con:
+    - acordes por '_'
+    - palabras indexadas con '#'
     """
 
-    resultado = ''
+    resultado = ""
     idx_acorde = 0
 
     palabras = linea.strip().split()
 
     for palabra in palabras:
-        es_indexada = palabra.startswith(simbolo)
-        index_real = None
-
-            # --- Extraer base e índice explícito ---
-        if es_indexada:
-            contenido = palabra[1:]
-            if '=' in contenido:
-                base_raw, index_real = contenido.split('=', 1)
-            else:
-                base_raw = contenido
-        else:
-            base_raw = palabra
-
-        partes = base_raw.split('_')
-
-        # --- Registrar índice UNA sola vez por palabra ---
-        indice_ya_registrado = False
-        if es_indexada:
-            clave_indice = limpiar_para_indice(index_real or base_raw)
-            if clave_indice:
-                if clave_indice not in indice_tematica_global:
-                    indice_tematica_global[clave_indice] = set()
-
-                titulo_indexado = re.sub(
-                    r'\s*=[+-]?\d+\s*$',
-                    '',
-                    (titulo_cancion or "Sin título").strip()
-                )
-
-                indice_tematica_global[clave_indice].add(titulo_indexado)
-
-                indice_ya_registrado = True
-
-            # --- Construcción visual + acordes ---
-        for i, parte in enumerate(partes):
-            # Insertar acorde antes de cada parte excepto la primera
-            if i > 0:
-                if idx_acorde >= len(acordes):
-                    raise RuntimeError(
-                        f"Error: hay más '_' que acordes en la línea:\n{linea}"
-                    )
-                acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', '\\#')
-                resultado += f"\\[{acorde}]"
-                idx_acorde += 1
-
-            if not parte:
-                continue
-
-            if es_indexada:
-                resultado += (
-                    f"\\textcolor{{blue!50!black}}{{\\textbf{{{parte}}}}}"
-                )
-            else:
-                resultado += parte
-
-        resultado += ' '
+        palabra_tex, idx_acorde = procesar_palabra_indexada(
+            palabra, acordes, idx_acorde, titulo_cancion
+        )
+        resultado += palabra_tex + " "
 
     return resultado.rstrip()
+def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indice_nombre="tema"):
+    """
+    Procesa UNA palabra SongPro:
+    - _ inserta acordes
+    - # marca índice
+    - #u_ni_da=Unidad → visible con sílabas, índice limpio
+    """
+
+    es_indexada = palabra.startswith("#")
+    palabra_trabajo = palabra[1:] if es_indexada else palabra
+
+    # --- índice explícito ---
+    if es_indexada and "=" in palabra_trabajo:
+        base_raw, indice_real = palabra_trabajo.split("=", 1)
+    else:
+        base_raw = palabra_trabajo
+        indice_real = base_raw.replace("_", "")
+
+    partes = base_raw.split("_")
+    resultado = ""
+
+    for i, parte in enumerate(partes):
+        if i > 0:
+            if idx_acorde >= len(acordes):
+                raise RuntimeError(
+                    f"Error: hay más '_' que acordes en la palabra '{palabra}'"
+                )
+            acorde = convertir_a_latex(acordes[idx_acorde]).replace("#", r"\#")
+            resultado += f"\\[{acorde}]"
+            idx_acorde += 1
+
+        resultado += parte
+
+    # --- envolver índice SOLO UNA VEZ ---
+    if es_indexada:
+        resultado = (
+            r"\textbf{"
+            + resultado
+            + rf"\protect\index[{indice_nombre}]{{{indice_real}!{titulo_cancion}}}"
+            + "}"
+        )
+
+    return resultado, idx_acorde
+
 
 def escape_latex_raw(linea):
     """
@@ -844,6 +831,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
