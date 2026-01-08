@@ -114,7 +114,7 @@ def limpiar_para_indice(palabra):
     #uni_dos=unidad → registra "unidad"
     """
     # 1. Quitar acordes del inicio (Do#, Re#m)
-    limpia = re.sub(r'^#[A-Ga-g#b/?m\\d]*(\s|$)', '#', palabra)
+    limpia = re.sub(r'^#[A-Ga-g#b/?m\\d_]*', '#', palabra)
     
     # 2. Si hay '=', tomar DESPUÉS del =
     if '=' in limpia:
@@ -230,12 +230,15 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
                 base, index_real = contenido.split('=', 1)
             else:
                 base = contenido
-        palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
+        
 
         # -------------------------
         # Placeholder de acorde
         # -------------------------
+            base = re.sub(r'_', '', base)  # #u_ni_da → #unidad (visual)
+        palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
         if base == '_':
+            
             if idx_acorde >= len(acordes):
                 raise RuntimeError(
                     f"Error: hay más '_' que acordes en la línea:\n{linea}"
@@ -861,6 +864,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
