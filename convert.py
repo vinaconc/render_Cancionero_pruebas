@@ -193,61 +193,61 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
     idx_acorde = 0
 
     palabras = linea.strip().split()
-palabras = linea.strip().split()
-for palabra in palabras:
-    es_indexada = palabra.startswith(simbolo)
-    index_real = None
-
-    if es_indexada:
-        contenido = palabra[1:]
-        if '=' in contenido:
-            base_raw, index_real = contenido.split('=', 1)
-        else:
-            base_raw = contenido
-    else:
-        base_raw = palabra
-
-    # Dividir la palabra por '_'
-    partes = base_raw.split('_')
-
-    for i, parte in enumerate(partes):
-        # Insertar acorde antes de cada parte (excepto la primera)
-        if i > 0:
-            if idx_acorde >= len(acordes):
-                raise RuntimeError(
-                    f"Error: hay más '_' que acordes en la línea:\n{linea}"
-                )
-            acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', '\\#')
-            resultado += f"\\[{acorde}]"
-            idx_acorde += 1
-
-        if not parte:
-            continue
-
-        palabra_para_indice = limpiar_para_indice(
-            index_real if index_real else parte
-        )
+    palabras = linea.strip().split()
+    for palabra in palabras:
+        es_indexada = palabra.startswith(simbolo)
+        index_real = None
 
         if es_indexada:
-            if palabra_para_indice not in indice_tematica_global:
-                indice_tematica_global[palabra_para_indice] = set()
-
-            titulo_indexado = re.sub(
-                r'\s*=[+-]?\d+\s*$',
-                '',
-                (titulo_cancion or "Sin título").strip()
-            )
-
-            indice_tematica_global[palabra_para_indice].add(titulo_indexado)
-
-            resultado += (
-                f"\\textcolor{{blue!50!black}}{{\\textbf{{{parte}}}}}"
-                f"\\protect\\index[tema]{{{palabra_para_indice}!{titulo_cancion}}}"
-            )
+            contenido = palabra[1:]
+            if '=' in contenido:
+                base_raw, index_real = contenido.split('=', 1)
+            else:
+                base_raw = contenido
         else:
-            resultado += parte
+            base_raw = palabra
 
-    resultado += ' '
+        # Dividir la palabra por '_'
+        partes = base_raw.split('_')
+
+        for i, parte in enumerate(partes):
+            # Insertar acorde antes de cada parte (excepto la primera)
+            if i > 0:
+                if idx_acorde >= len(acordes):
+                    raise RuntimeError(
+                        f"Error: hay más '_' que acordes en la línea:\n{linea}"
+                    )
+                acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', '\\#')
+                resultado += f"\\[{acorde}]"
+                idx_acorde += 1
+
+            if not parte:
+                continue
+
+            palabra_para_indice = limpiar_para_indice(
+                index_real if index_real else parte
+            )
+
+            if es_indexada:
+                if palabra_para_indice not in indice_tematica_global:
+                    indice_tematica_global[palabra_para_indice] = set()
+
+                titulo_indexado = re.sub(
+                    r'\s*=[+-]?\d+\s*$',
+                    '',
+                    (titulo_cancion or "Sin título").strip()
+                )
+
+                indice_tematica_global[palabra_para_indice].add(titulo_indexado)
+
+                resultado += (
+                    f"\\textcolor{{blue!50!black}}{{\\textbf{{{parte}}}}}"
+                    f"\\protect\\index[tema]{{{palabra_para_indice}!{titulo_cancion}}}"
+                )
+            else:
+                resultado += parte
+
+        resultado += ' '
 
 def escape_latex_raw(linea):
     """
@@ -837,6 +837,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
