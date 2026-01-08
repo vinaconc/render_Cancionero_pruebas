@@ -223,8 +223,8 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
         # ACORDES PRIMERO
         if base.strip() == '_':
             if idx_acorde < len(acordes):
-                acorde = convertir_a_latex(acordes[idx_acorde])
-                resultado += f"\\\\[{acorde.replace('#', r'\\#')}]"
+                acorde = convertir_a_latex(acordes[idx_acorde]).replace('#', r'\#')
+                resultado += '\\[' + acorde + ']'
                 idx_acorde += 1
             continue
 
@@ -830,6 +830,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
