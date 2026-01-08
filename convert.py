@@ -114,21 +114,20 @@ def limpiar_para_indice(palabra):
     #uni_dos=unidad → registra "unidad"
     """
     # 1. Quitar acordes del inicio (Do#, Re#m)
-    limpia = re.sub(r'^#[A-Ga-g#b/?m\\d_]*', '#', palabra)
+    limpia = re.sub(r'^#', '', palabra)
     
     # 2. Si hay '=', tomar DESPUÉS del =
     if '=' in limpia:
         limpia = limpia.split('=', 1)[1]
-        if palabra.startswith('#'):
-            limpia = '#' + limpia  # Restaurar #
+    limpia = re.sub(r'_', '', limpia)
     
     # 3. Normalizar SOLO para registro (sin tildes, minúsculas)
-    registro = re.sub(r'^#', '', limpia)  # Temporal sin #
+
     registro = unicodedata.normalize('NFD', registro.lower())
     registro = ''.join(c for c in registro if unicodedata.category(c) != 'Mn')
     registro = re.sub(r'[^a-z0-9]', '', registro)
     
-    return registro  # "unidad"
+    return re.sub(r'[^a-z0-9]', '', registro)
 
 
 def es_linea_acordes(linea):
@@ -230,12 +229,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
                 base, index_real = contenido.split('=', 1)
             else:
                 base = contenido
-        
-
-        # -------------------------
-        # Placeholder de acorde
-        # -------------------------
-            base = re.sub(r'_', '', base)  # #u_ni_da → #unidad (visual)
+            base = re.sub(r'_', '', base)
         palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
         if base == '_':
             
@@ -250,12 +244,7 @@ def procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion, simbolo
             idx_acorde += 1
             continue
 
-        # -------------------------
-        # Texto normal (sin '_')
-        # -------------------------
-        palabra_para_indice = limpiar_para_indice(index_real if index_real else base)
-
-        if es_indexada:
+        if es_indexada and palabra_para_indice:
             if palabra_para_indice not in indice_tematica_global:
                 indice_tematica_global[palabra_para_indice] = set()
 
@@ -864,6 +853,7 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+
 
 
 
