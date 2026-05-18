@@ -215,7 +215,7 @@ def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indi
     else:
         base_raw = palabra_trabajo
         indice_real = base_raw.replace("_", "")
-    indice_real = indice_real.rstrip('.;')
+    if es_indexada: indice_real = indice_real.rstrip('.;')
     partes = base_raw.split("_")
     resultado = ""
 
