@@ -425,7 +425,7 @@ def convertir_songpro(texto):
                 i += 1
                 continue
 
-            if linea in ('V', 'C', 'M', 'O', 'S'):
+            if linea in ('V', 'CH', 'M', 'O', 'S'):
                 cerrar_raw()
                 raw_mode = False
                 continue   # reprocesar esta línea
@@ -486,7 +486,7 @@ def convertir_songpro(texto):
                 siguiente = lineas[i+1].strip()
                 siguiente2 = lineas[i+2].strip()
 				# Caso especial: V / C / _Estrofa   --> C es acorde Do
-                if siguiente == 'C' and siguiente2.startswith('_'):
+                if siguiente == 'CH' and siguiente2.startswith('_'):
                     # construimos la línea con acorde Do sobre el primer '_'
                     acordes = ['C']  # o 'Do' según quieras
                     linea_estrofa = siguiente2
@@ -500,7 +500,7 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        if linea == 'C':
+        if linea == 'CH':
             cerrar_bloque()
             tipo_bloque = 'chorus'
             i += 1
