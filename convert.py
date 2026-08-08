@@ -111,37 +111,38 @@ def limpiar_para_indice(palabra):
 	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
 
 def es_linea_acordes(linea):
-	tokens = linea.split()
-	if not tokens:
-		return False
-    palabras_ambiguas = {'la', 'mi', 'si', 'a'}
-	for t in tokens:
-    t_lower = t.lower()
+    # Si tiene guiones bajos, no es acorde
+    if '_' in linea:
+        return False
+
+    tokens = linea.split()
+    if not tokens:
+        return False
+
+    palabras_ambiguas = {'la', 'mi', 'si', 'a'}  # ← Palabras que no son acordes
+
+    for t in tokens:
+        t_lower = t.lower()
+
+        # Si es ambigua y no está acompañada, no es acorde
         if t_lower in palabras_ambiguas:
             otros = [tok for tok in tokens if tok.lower() not in palabras_ambiguas and tok != t]
             if not otros:
                 return False
 
-		
-		# Verificar si es un acorde en notación americana
-		if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
-			continue
+        # Notas latinas (con alteraciones)
+        notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
+        notas_latinas_alteradas = ['do#', 're#', 'fa#', 'sol#', 'la#', 'reb', 'mib', 'lab', 'sib']
+        if any(t_lower.startswith(n) for n in notas_latinas) or \
+           any(t_lower.startswith(n) for n in notas_latinas_alteradas):
+            continue
 
-		# Verificar si es un acorde en notación latina
-		notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
-		notas_latinas_bemoles = ['reb', 'mib', 'lab', 'sib', 'reb', 'mib', 'lab', 'sib']
-		notas_latinas_sostenidos = ['do#', 're#', 'fa#', 'sol#', 'la#']
+        # Notas americanas
+        if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
+            continue
 
-		# Comprobar si comienza con una nota latina (con sostenido, bemol o natural)
-		if any(t.lower().startswith(n.lower()) for n in notas_latinas) or \
-		   any(t.lower().startswith(n.lower()) for n in notas_latinas_bemoles) or \
-		   any(t.lower().startswith(n.lower()) for n in notas_latinas_sostenidos):
-			continue
-
-		# Si no coincide con ningún patrón, no es un acorde
-		return False
-	return True
-
+        return False
+    return True
 def convertir_a_latex(acorde):
 	mapa = {
 		'C': 'Do', 'C#': 'Do#', 'D': 'Re', 'D#': 'Re#', 'E': 'Mi', 'F': 'Fa',
