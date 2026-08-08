@@ -406,6 +406,7 @@ def convertir_songpro(texto):
             nonlocal cancion_abierta
             if cancion_abierta:
                 resultado.append(r'\endsong')
+                resultado.append('')
                 cancion_abierta = False
 
     # =========================
@@ -451,6 +452,7 @@ def convertir_songpro(texto):
             cerrar_cancion()
             if seccion_abierta:
                 resultado.append(r'\end{songs}')
+                resultado.append('')				
             seccion_abierta = True
             resultado.extend([
                 r'\songchapter{' + linea[2:].strip().title() + '}',
