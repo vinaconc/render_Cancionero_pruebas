@@ -110,8 +110,9 @@ def transportar_acorde(acorde, semitonos):
 def limpiar_para_indice(palabra):
 	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
 
+
 def es_linea_acordes(linea):
-    # Si tiene guiones bajos, no es acorde
+    # Si la línea tiene guiones bajos, NO es acorde
     if '_' in linea:
         return False
 
@@ -119,30 +120,45 @@ def es_linea_acordes(linea):
     if not tokens:
         return False
 
-    palabras_ambiguas = {'la', 'mi', 'si', 'a'}  # ← Palabras que no son acordes
+    # Lista completa de notas latinas (naturales, sostenidas, bemoles)
+    notas_latinas = [
+        'do', 're', 'mi', 'fa', 'sol', 'la', 'si',
+        'do#', 're#', 'fa#', 'sol#', 'la#',
+        'reb', 'mib', 'lab', 'sib'
+    ]
+    # También notación americana para seguridad
+    notas_americanas = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
     for t in tokens:
         t_lower = t.lower()
 
-        # Si es ambigua y no está acompañada, no es acorde
-        if t_lower in palabras_ambiguas:
-            otros = [tok for tok in tokens if tok.lower() not in palabras_ambiguas and tok != t]
-            if not otros:
-                return False
-
-        # Notas latinas (con alteraciones)
-        notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
-        notas_latinas_alteradas = ['do#', 're#', 'fa#', 'sol#', 'la#', 'reb', 'mib', 'lab', 'sib']
-        if any(t_lower.startswith(n) for n in notas_latinas) or \
-           any(t_lower.startswith(n) for n in notas_latinas_alteradas):
+        # Verificar si es una nota latina con posibles sufijos (m, maj, 7, etc.)
+        es_nota = False
+        for nota in notas_latinas:
+            if t_lower.startswith(nota):
+                # Aceptar si después de la nota viene un sufijo válido o fin de token
+                resto = t_lower[len(nota):]
+                if resto == '' or resto.startswith('m') or resto.startswith('maj') or resto.startswith('min') or resto.startswith('dim') or resto.startswith('aug') or resto.startswith('sus') or resto.startswith('add') or resto.startswith('7') or resto.startswith('9') or resto.startswith('11') or resto.startswith('13') or resto.startswith('/'):
+                    es_nota = True
+                    break
+        if es_nota:
             continue
 
-        # Notas americanas
-        if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
+        # Verificar si es una nota americana con sufijos
+        for nota in notas_americanas:
+            if t_lower.startswith(nota):
+                resto = t_lower[len(nota):]
+                if resto == '' or resto.startswith('#') or resto.startswith('b') or resto.startswith('m') or resto.startswith('maj') or resto.startswith('min') or resto.startswith('dim') or resto.startswith('aug') or resto.startswith('sus') or resto.startswith('add') or resto.startswith('7') or resto.startswith('9') or resto.startswith('11') or resto.startswith('13') or resto.startswith('/'):
+                    es_nota = True
+                    break
+        if es_nota:
             continue
 
+        # Si ningún token es nota, no es línea de acordes
         return False
+
     return True
+
 def convertir_a_latex(acorde):
 	mapa = {
 		'C': 'Do', 'C#': 'Do#', 'D': 'Re', 'D#': 'Re#', 'E': 'Mi', 'F': 'Fa',
@@ -539,31 +555,20 @@ def convertir_songpro(texto):
         # =========================
         # TEXTO NORMAL
         # =========================
-        if tipo_bloque:
-            if "Reden" in linea:
-                print(f"🔍 [PARSER] Línea letra '{linea}' en bloque {tipo_bloque}")
-            linea = procesar_repeticiones_en_letra(linea)
-
-            if i > 0 and es_linea_acordes(lineas[i-1]):
-                acordes = [
-                    transportar_acorde(a, transposicion_actual)
-                    if transposicion_actual != 0 else a
-                    for a in lineas[i-1].split()
-               ]
-
-                linea_procesada = procesar_linea_con_acordes_y_indices(
-                    linea,          # ← aquí todavía están los _
-                    acordes,
-                    titulo_cancion_actual
-                )
-                bloque_actual.append(linea_procesada)
-            else:
-                bloque_actual.append(linea.replace('_', ''))
-        app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
-		
-
-        i += 1
-
+if tipo_bloque:
+    app.logger.info(f"📝 [PARSER] Procesando letra en bloque {tipo_bloque}: '{linea}'")
+    if i > 0 and es_linea_acordes(lineas[i-1]):
+        acordes = lineas[i-1].split()
+        app.logger.info(f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}")
+        linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual)
+        app.logger.info(f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'")
+    else:
+        app.logger.warning(f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'")
+        linea_procesada = linea.replace('_', '')
+        app.logger.info(f"➡️ [PARSER] Línea sin acordes: '{linea_procesada}'")
+    bloque_actual.append(linea_procesada)
+    i += 1
+    continue
     # =========================
     # CIERRES FINALES
     # =========================
