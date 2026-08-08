@@ -114,14 +114,22 @@ def es_linea_acordes(linea):
 	tokens = linea.split()
 	if not tokens:
 		return False
+    palabras_ambiguas = {'la', 'mi', 'si', 'a'}
 	for t in tokens:
+    t_lower = t.lower()
+        if t_lower in palabras_ambiguas:
+            otros = [tok for tok in tokens if tok.lower() not in palabras_ambiguas and tok != t]
+            if not otros:
+                return False
+
+		
 		# Verificar si es un acorde en notación americana
 		if re.match(r'^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(/[A-G][#b]?)?$', t, re.IGNORECASE):
 			continue
 
 		# Verificar si es un acorde en notación latina
 		notas_latinas = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
-		notas_latinas_bemoles = ['reb', 'mib', 'lab', 'sib']
+		notas_latinas_bemoles = ['reb', 'mib', 'lab', 'sib', 'reb', 'mib', 'lab', 'sib']
 		notas_latinas_sostenidos = ['do#', 're#', 'fa#', 'sol#', 'la#']
 
 		# Comprobar si comienza con una nota latina (con sostenido, bemol o natural)
@@ -354,6 +362,7 @@ def convertir_songpro(texto):
         return ' '.join(salida)
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque, repeat_abierto
+        print(f"⏹️ [PARSER] Llamada a cerrar_bloque() desde el ciclo principal")
 
         if not bloque_actual or not tipo_bloque:
             print(f"🔍 [PARSER] Cerrar bloque vacío o sin tipo")
@@ -421,6 +430,7 @@ def convertir_songpro(texto):
     while i < len(lineas):
         		
         linea = lineas[i].strip()
+        app.logger.info(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
         if "Reden" in linea or "RE" == linea:
             print(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
 
@@ -522,6 +532,7 @@ def convertir_songpro(texto):
             i += 1
             continue
         if es_linea_acordes(linea):
+            app.logger.info(f"🎵 [PARSER] Línea de acordes: '{linea}'")
             i += 1
             continue
         # =========================
@@ -547,7 +558,7 @@ def convertir_songpro(texto):
                 bloque_actual.append(linea_procesada)
             else:
                 bloque_actual.append(linea.replace('_', ''))
-
+        app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
 		
 
         i += 1
