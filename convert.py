@@ -569,7 +569,13 @@ if tipo_bloque:
     bloque_actual.append(linea_procesada)
     i += 1
     continue
-    # =========================
+else:
+    app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
+    i += 1
+    continue
+
+
+# =========================
     # CIERRES FINALES
     # =========================
     if raw_mode:
