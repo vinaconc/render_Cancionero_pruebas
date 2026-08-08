@@ -356,6 +356,7 @@ def convertir_songpro(texto):
         nonlocal bloque_actual, tipo_bloque, repeat_abierto
 
         if not bloque_actual or not tipo_bloque:
+            print(f"🔍 [PARSER] Cerrar bloque vacío o sin tipo")
             bloque_actual = []
             tipo_bloque = None
             return
@@ -370,6 +371,9 @@ def convertir_songpro(texto):
             bloque_actual = []
             tipo_bloque = None
             return
+        print(f"🔍 [PARSER] Cerrando bloque {tipo_bloque} con {len(bloque_actual)} líneas:")
+        for idx, line in enumerate(bloque_actual):
+            print(f"    {idx}: '{line}'")
 
         if repeat_abierto:
             bloque_actual.append(r'\rrep \rep{2}')
@@ -405,6 +409,7 @@ def convertir_songpro(texto):
     def cerrar_cancion():
             nonlocal cancion_abierta
             if cancion_abierta:
+                print(f"🔍 [PARSER] Cerrando canción '{titulo_cancion_actual}'")
                 resultado.append(r'\endsong')
                 resultado.append('')
                 cancion_abierta = False
@@ -414,7 +419,10 @@ def convertir_songpro(texto):
     # =========================
     i = 0
     while i < len(lineas):
+        		
         linea = lineas[i].strip()
+        if "Reden" in linea or "RE" == linea:
+            print(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
 
         # =========================
         # MODO RAW
@@ -520,6 +528,8 @@ def convertir_songpro(texto):
         # TEXTO NORMAL
         # =========================
         if tipo_bloque:
+            if "Reden" in linea:
+                print(f"🔍 [PARSER] Línea letra '{linea}' en bloque {tipo_bloque}")
             linea = procesar_repeticiones_en_letra(linea)
 
             if i > 0 and es_linea_acordes(lineas[i-1]):
