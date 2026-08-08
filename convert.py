@@ -555,25 +555,22 @@ def convertir_songpro(texto):
         # =========================
         # TEXTO NORMAL
         # =========================
-if tipo_bloque:
-    app.logger.info(f"📝 [PARSER] Procesando letra en bloque {tipo_bloque}: '{linea}'")
-    if i > 0 and es_linea_acordes(lineas[i-1]):
-        acordes = lineas[i-1].split()
-        app.logger.info(f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}")
-        linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual)
-        app.logger.info(f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'")
+    if tipo_bloque:
+        app.logger.info(f"📝 [PARSER] Procesando letra en bloque {tipo_bloque}: '{linea}'")
+        if i > 0 and es_linea_acordes(lineas[i-1]):
+            acordes = lineas[i-1].split()
+            app.logger.info(f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}")
+            linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual)
+            app.logger.info(f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'")
+        else:
+            app.logger.warning(f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'")
+            linea_procesada = linea.replace('_', '')
+            app.logger.info(f"➡️ [PARSER] Línea sin acordes: '{linea_procesada}'")
+        bloque_actual.append(linea_procesada)
+        i += 1
     else:
-        app.logger.warning(f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'")
-        linea_procesada = linea.replace('_', '')
-        app.logger.info(f"➡️ [PARSER] Línea sin acordes: '{linea_procesada}'")
-    bloque_actual.append(linea_procesada)
-    i += 1
-    continue
-else:
-    app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
-    i += 1
-    continue
-
+        app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
+        i += 1
 
 # =========================
     # CIERRES FINALES
