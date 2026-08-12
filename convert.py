@@ -203,7 +203,11 @@ def convertir_a_latex(acorde):
 
 	return acorde
 def procesar_linea_con_acordes_y_indices(
-    linea, acordes, titulo_cancion=None, simbolo="#"
+    linea,
+    acordes,
+    titulo_cancion=None,
+    simbolo="#",
+    semitonos=0
 ):
     """
     Procesa una línea completa SongPro con:
@@ -217,13 +221,11 @@ def procesar_linea_con_acordes_y_indices(
     palabras = linea.strip().split()
 
     for palabra in palabras:
-        palabra_tex, idx_acorde = procesar_palabra_indexada(
-            palabra, acordes, idx_acorde, titulo_cancion
-        )
+        palabra_tex, idx_acorde = procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, semitonos=semitonos)
         resultado += palabra_tex + " "
 
     return resultado.rstrip()
-def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indice_nombre="tema"):
+def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indice_nombre="tema", semitonos=0):
     """
     Procesa UNA palabra SongPro:
     - _ inserta acordes
@@ -250,7 +252,7 @@ def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indi
                 raise RuntimeError(
                     f"Error: hay más '_' que acordes en la palabra '{palabra}'"
                 )
-            acorde = convertir_a_latex(acordes[idx_acorde]).replace("#", r"\#")
+            acorde = transportar_acorde(acordes[idx_acorde], semitonos).replace("#", r"\#")
             resultado += f"\\[{acorde}]"
             idx_acorde += 1
 
@@ -528,7 +530,7 @@ def convertir_songpro(texto):
                     acordes = ['C']  # o 'Do' según quieras
                     linea_estrofa = siguiente2
                     linea_procesada = procesar_linea_con_acordes_y_indices(
-                        linea_estrofa, acordes, titulo_cancion_actual
+                        linea_estrofa, acordes, titulo_cancion_actual, semitonos=transposicion_actual
                     )
                     bloque_actual.append(linea_procesada)
                     # saltar las dos líneas ya consumidas
@@ -560,7 +562,7 @@ def convertir_songpro(texto):
             if i > 0 and es_linea_acordes(lineas[i-1]):
                 acordes = lineas[i-1].split()
                 app.logger.info(f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}")
-                linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual)
+                linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual, semitonos=transposicion_actual)
                 app.logger.info(f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'")
             else:
                 app.logger.warning(f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'")
