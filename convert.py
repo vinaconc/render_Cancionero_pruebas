@@ -22,6 +22,8 @@ import time
 import io
 import tempfile
 
+import re
+
 
 def procesar_repeticiones(texto):
     """
@@ -34,30 +36,24 @@ def procesar_repeticiones(texto):
     patron_b = re.compile(r"\bB([234])\b")
 
     for linea in lineas:
-        coincidencias = list(patron_b.finditer(linea))
-        if not coincidencias:
-            resultado.append(linea)
-            continue
 
-        nueva_linea = linea
-        for match in reversed(coincidencias):
+        def reemplazar_marca(match):
+            nonlocal repeticion_abierta
             numero = int(match.group(1))
-            inicio, fin = match.span()
 
             if repeticion_abierta is None:
                 repeticion_abierta = numero
-                reemplazo = "\\lrep"
+                return "\\lrep"
             else:
                 if numero == repeticion_abierta:
-                    reemplazo = f"\\rrep\\rep{{{repeticion_abierta}}}"
                     repeticion_abierta = None
+                    return f"\\rrep\\rep{{{numero}}}"
                 else:
                     raise ValueError(
-                        f"Marca B{numero} sin cerrar B{repeticion_abierta}"
+                        f"Marca B{numero} encontrada mientras B{repeticion_abierta} estaba abierta"
                     )
 
-            nueva_linea = nueva_linea[:inicio] + reemplazo + nueva_linea[fin:]
-
+        nueva_linea = patron_b.sub(reemplazar_marca, linea)
         resultado.append(nueva_linea)
 
     if repeticion_abierta is not None:
