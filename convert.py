@@ -1,4 +1,15 @@
-from flask import session, Flask, request, after_this_request, jsonify, send_file, render_template_string, Response, redirect, url_for
+from flask import (
+    session,
+    Flask,
+    request,
+    after_this_request,
+    jsonify,
+    send_file,
+    render_template_string,
+    Response,
+    redirect,
+    url_for,
+)
 from flask_cors import CORS
 from werkzeug.exceptions import NotFound
 import traceback
@@ -12,19 +23,64 @@ import io
 import tempfile
 
 
+def procesar_repeticiones(texto):
+    """
+    Convierte marcas B2, B3, B4 en comandos LaTeX \lrep y \rrep\rep{n}.
+    Lanza ValueError si las marcas no están balanceadas.
+    """
+    lineas = texto.split("\n")
+    resultado = []
+    repeticion_abierta = None
+    patron_b = re.compile(r"\bB([234])\b")
+
+    for linea in lineas:
+        coincidencias = list(patron_b.finditer(linea))
+        if not coincidencias:
+            resultado.append(linea)
+            continue
+
+        nueva_linea = linea
+        for match in reversed(coincidencias):
+            numero = int(match.group(1))
+            inicio, fin = match.span()
+
+            if repeticion_abierta is None:
+                repeticion_abierta = numero
+                reemplazo = "\\lrep"
+            else:
+                if numero == repeticion_abierta:
+                    reemplazo = f"\\rrep\\rep{{{repeticion_abierta}}}"
+                    repeticion_abierta = None
+                else:
+                    raise ValueError(
+                        f"Marca B{numero} sin cerrar B{repeticion_abierta}"
+                    )
+
+            nueva_linea = nueva_linea[:inicio] + reemplazo + nueva_linea[fin:]
+
+        resultado.append(nueva_linea)
+
+    if repeticion_abierta is not None:
+        raise ValueError(f"Falta cierre para B{repeticion_abierta}")
+
+    return "\n".join(resultado)
+
+
 app = Flask(__name__)
-CORS(app, resources={
-    r"/get/pdf/": {"origins": ["https://vinaconc.cl"]}
-})
-app.secret_key = 'Quique04#'
-app.config['ENV'] = 'production'
-app.config['DEBUG'] = False
-app.config['TESTING'] = False
-app.config['PROPAGATE_EXCEPTIONS'] = False
+CORS(app, resources={r"/get/pdf/": {"origins": ["https://vinaconc.cl"]}})
+app.secret_key = "Quique04#"
+app.config["ENV"] = "production"
+app.config["DEBUG"] = False
+app.config["TESTING"] = False
+app.config["PROPAGATE_EXCEPTIONS"] = False
+
+
 @app.errorhandler(NotFound)
 def not_found(e):
     app.logger.error(f"404 en URL: {request.path}")
     return "Página no encontrada", 404
+
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     # Registrar el error para depuración pero no mostrarlo al usuario
@@ -33,6 +89,7 @@ def handle_exception(e):
     # Devolver un mensaje de error genérico
     return jsonify({"error": "Error inesperado en el servidor."}), 500
 
+
 archivo_plantilla = "plantilla.tex"
 
 archivo_salida = "cancionero_web.tex"
@@ -40,80 +97,95 @@ directorio_pdfs = "pdfs"
 os.makedirs(directorio_pdfs, exist_ok=True)
 
 with open(archivo_plantilla, "r", encoding="utf-8") as f:
-	plantilla = f.read()
+    plantilla = f.read()
 
 indice_tematica_global = {}
 
-notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+notas = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 equivalencias_latinas = {
-	'Do': 'C', 'Do#': 'C#', 'Re': 'D', 'Re#': 'D#', 'Mi': 'E', 'Fa': 'F',
-	'Fa#': 'F#', 'Sol': 'G', 'Sol#': 'G#', 'La': 'A', 'La#': 'A#', 'Si': 'B'
+    "Do": "C",
+    "Do#": "C#",
+    "Re": "D",
+    "Re#": "D#",
+    "Mi": "E",
+    "Fa": "F",
+    "Fa#": "F#",
+    "Sol": "G",
+    "Sol#": "G#",
+    "La": "A",
+    "La#": "A#",
+    "Si": "B",
 }
 
+
 def transportar_acorde(acorde, semitonos):
-	acorde = acorde.strip()
+    acorde = acorde.strip()
 
-	# Convertir notación de bemoles en inglés a notación estándar
-	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
-	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
+    # Convertir notación de bemoles en inglés a notación estándar
+    acorde = acorde.replace("Bb", "A#").replace("bb", "a#")
+    acorde = acorde.replace("Gb", "F#").replace("gb", "f#")
 
-	# Manejar acordes con bajo (por ejemplo D/F#)
-	if '/' in acorde:
-		parte_superior, bajo = acorde.split('/')
-		parte_superior_transpuesta = transportar_acorde(parte_superior, semitonos)
-		bajo_transpuesto = transportar_acorde(bajo, semitonos)
-		return f"{parte_superior_transpuesta}/{bajo_transpuesto}"
+    # Manejar acordes con bajo (por ejemplo D/F#)
+    if "/" in acorde:
+        parte_superior, bajo = acorde.split("/")
+        parte_superior_transpuesta = transportar_acorde(parte_superior, semitonos)
+        bajo_transpuesto = transportar_acorde(bajo, semitonos)
+        return f"{parte_superior_transpuesta}/{bajo_transpuesto}"
 
-	# Mapa de conversión de bemoles a sostenidos para procesamiento interno
-	mapa_bemoles_a_sostenidos = {
-		'Reb': 'Do#', 'Rebm': 'Do#m',
-		'Mib': 'Re#', 'Mibm': 'Re#m',
-		'Lab': 'Sol#', 'Labm': 'Sol#m',
-		'Sib': 'La#', 'Sibm': 'La#m'
-		# Nota: Solb no se convierte a Fa# para mantener consistencia con el mapa de bemoles
-	}
+    # Mapa de conversión de bemoles a sostenidos para procesamiento interno
+    mapa_bemoles_a_sostenidos = {
+        "Reb": "Do#",
+        "Rebm": "Do#m",
+        "Mib": "Re#",
+        "Mibm": "Re#m",
+        "Lab": "Sol#",
+        "Labm": "Sol#m",
+        "Sib": "La#",
+        "Sibm": "La#m",
+        # Nota: Solb no se convierte a Fa# para mantener consistencia con el mapa de bemoles
+    }
 
-	# Convertir bemoles a sostenidos para procesamiento interno
-	for bemol, sostenido in mapa_bemoles_a_sostenidos.items():
-		if acorde.lower().startswith(bemol.lower()):
-			acorde = sostenido + acorde[len(bemol):]
-			break
+    # Convertir bemoles a sostenidos para procesamiento interno
+    for bemol, sostenido in mapa_bemoles_a_sostenidos.items():
+        if acorde.lower().startswith(bemol.lower()):
+            acorde = sostenido + acorde[len(bemol) :]
+            break
 
-	# Detectar si es notación latina y convertir a americana
-	for nota_lat, nota_ang in equivalencias_latinas.items():
-		if acorde.lower().startswith(nota_lat.lower()):
-			acorde = nota_ang + acorde[len(nota_lat):]
-			break			
+    # Detectar si es notación latina y convertir a americana
+    for nota_lat, nota_ang in equivalencias_latinas.items():
+        if acorde.lower().startswith(nota_lat.lower()):
+            acorde = nota_ang + acorde[len(nota_lat) :]
+            break
 
-	match = re.match(r'^([A-Ga-g][#b]?)(.*)$', acorde)
-	if not match:
-		return acorde
-	nota, sufijo = match.groups()
-	nota_mayus = nota.upper()
+    match = re.match(r"^([A-Ga-g][#b]?)(.*)$", acorde)
+    if not match:
+        return acorde
+    nota, sufijo = match.groups()
+    nota_mayus = nota.upper()
 
-	try:
-		idx = notas.index(nota_mayus)
-	except ValueError:
-		return acorde
+    try:
+        idx = notas.index(nota_mayus)
+    except ValueError:
+        return acorde
 
-	nueva_idx = (idx + semitonos) % 12
-	nueva_nota = notas[nueva_idx]
-	if nota[0].islower():
-		nueva_nota = nueva_nota.lower()
+    nueva_idx = (idx + semitonos) % 12
+    nueva_nota = notas[nueva_idx]
+    if nota[0].islower():
+        nueva_nota = nueva_nota.lower()
 
-	acorde_transpuesto = nueva_nota + sufijo
+    acorde_transpuesto = nueva_nota + sufijo
 
-	# Volver a convertir a notación latina
-	return convertir_a_latex(acorde_transpuesto)
+    # Volver a convertir a notación latina
+    return convertir_a_latex(acorde_transpuesto)
 
 
 def limpiar_para_indice(palabra):
-	return re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]', '', palabra)
+    return re.sub(r"[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]", "", palabra)
 
 
 def es_linea_acordes(linea):
     # Si la línea tiene guiones bajos, NO es acorde
-    if '_' in linea:
+    if "_" in linea:
         return False
 
     tokens = linea.split()
@@ -122,12 +194,25 @@ def es_linea_acordes(linea):
 
     # Lista completa de notas latinas (naturales, sostenidas, bemoles)
     notas_latinas = [
-        'do', 're', 'mi', 'fa', 'sol', 'la', 'si',
-        'do#', 're#', 'fa#', 'sol#', 'la#',
-        'reb', 'mib', 'lab', 'sib'
+        "do",
+        "re",
+        "mi",
+        "fa",
+        "sol",
+        "la",
+        "si",
+        "do#",
+        "re#",
+        "fa#",
+        "sol#",
+        "la#",
+        "reb",
+        "mib",
+        "lab",
+        "sib",
     ]
     # También notación americana para seguridad
-    notas_americanas = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
+    notas_americanas = ["c", "d", "e", "f", "g", "a", "b"]
 
     for t in tokens:
         t_lower = t.lower()
@@ -137,8 +222,22 @@ def es_linea_acordes(linea):
         for nota in notas_latinas:
             if t_lower.startswith(nota):
                 # Aceptar si después de la nota viene un sufijo válido o fin de token
-                resto = t_lower[len(nota):]
-                if resto == '' or resto.startswith('m') or resto.startswith('maj') or resto.startswith('min') or resto.startswith('dim') or resto.startswith('aug') or resto.startswith('sus') or resto.startswith('add') or resto.startswith('7') or resto.startswith('9') or resto.startswith('11') or resto.startswith('13') or resto.startswith('/'):
+                resto = t_lower[len(nota) :]
+                if (
+                    resto == ""
+                    or resto.startswith("m")
+                    or resto.startswith("maj")
+                    or resto.startswith("min")
+                    or resto.startswith("dim")
+                    or resto.startswith("aug")
+                    or resto.startswith("sus")
+                    or resto.startswith("add")
+                    or resto.startswith("7")
+                    or resto.startswith("9")
+                    or resto.startswith("11")
+                    or resto.startswith("13")
+                    or resto.startswith("/")
+                ):
                     es_nota = True
                     break
         if es_nota:
@@ -147,8 +246,24 @@ def es_linea_acordes(linea):
         # Verificar si es una nota americana con sufijos
         for nota in notas_americanas:
             if t_lower.startswith(nota):
-                resto = t_lower[len(nota):]
-                if resto == '' or resto.startswith('#') or resto.startswith('b') or resto.startswith('m') or resto.startswith('maj') or resto.startswith('min') or resto.startswith('dim') or resto.startswith('aug') or resto.startswith('sus') or resto.startswith('add') or resto.startswith('7') or resto.startswith('9') or resto.startswith('11') or resto.startswith('13') or resto.startswith('/'):
+                resto = t_lower[len(nota) :]
+                if (
+                    resto == ""
+                    or resto.startswith("#")
+                    or resto.startswith("b")
+                    or resto.startswith("m")
+                    or resto.startswith("maj")
+                    or resto.startswith("min")
+                    or resto.startswith("dim")
+                    or resto.startswith("aug")
+                    or resto.startswith("sus")
+                    or resto.startswith("add")
+                    or resto.startswith("7")
+                    or resto.startswith("9")
+                    or resto.startswith("11")
+                    or resto.startswith("13")
+                    or resto.startswith("/")
+                ):
                     es_nota = True
                     break
         if es_nota:
@@ -159,55 +274,74 @@ def es_linea_acordes(linea):
 
     return True
 
+
 def convertir_a_latex(acorde):
-	mapa = {
-		'C': 'Do', 'C#': 'Do#', 'D': 'Re', 'D#': 'Re#', 'E': 'Mi', 'F': 'Fa',
-		'F#': 'Fa#', 'G': 'Sol', 'G#': 'Sol#', 'A': 'La', 'A#': 'La#', 'B': 'Si',
-		'Cm': 'Dom', 'C#m': 'Do#m', 'Dm': 'Rem', 'D#m': 'Re#m', 'Em': 'Mim',
-		'Fm': 'Fam', 'F#m': 'Fa#m', 'Gm': 'Solm', 'G#m': 'Sol#m',
-		'Am': 'Lam', 'A#m': 'La#m', 'Bm': 'Sim'
-	}
+    mapa = {
+        "C": "Do",
+        "C#": "Do#",
+        "D": "Re",
+        "D#": "Re#",
+        "E": "Mi",
+        "F": "Fa",
+        "F#": "Fa#",
+        "G": "Sol",
+        "G#": "Sol#",
+        "A": "La",
+        "A#": "La#",
+        "B": "Si",
+        "Cm": "Dom",
+        "C#m": "Do#m",
+        "Dm": "Rem",
+        "D#m": "Re#m",
+        "Em": "Mim",
+        "Fm": "Fam",
+        "F#m": "Fa#m",
+        "Gm": "Solm",
+        "G#m": "Sol#m",
+        "Am": "Lam",
+        "A#m": "La#m",
+        "Bm": "Sim",
+    }
 
-	# Mapa de conversión de sostenidos a bemoles (SOLO para La#)
-	mapa_bemoles_excepcion = {
-		'La#': 'Sib', 'La#m': 'Sibm'
-	}
+    # Mapa de conversión de sostenidos a bemoles (SOLO para La#)
+    mapa_bemoles_excepcion = {"La#": "Sib", "La#m": "Sibm"}
 
-	acorde = acorde.strip()
-	# Convertir notación de bemoles en inglés a notación estándar
-	acorde = acorde.replace('Bb', 'A#').replace('bb', 'a#')
-	acorde = acorde.replace('Gb', 'F#').replace('gb', 'f#')
-	acorde = acorde.replace('F#', 'FA#').replace('f#', 'fa#')
-	acorde = acorde.replace('C#', 'DO#').replace('c#', 'do#')
+    acorde = acorde.strip()
+    # Convertir notación de bemoles en inglés a notación estándar
+    acorde = acorde.replace("Bb", "A#").replace("bb", "a#")
+    acorde = acorde.replace("Gb", "F#").replace("gb", "f#")
+    acorde = acorde.replace("F#", "FA#").replace("f#", "fa#")
+    acorde = acorde.replace("C#", "DO#").replace("c#", "do#")
 
-	if any(acorde.lower().startswith(n.lower()) for n in ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']):
-		return acorde
+    if any(
+        acorde.lower().startswith(n.lower())
+        for n in ["do", "re", "mi", "fa", "sol", "la", "si"]
+    ):
+        return acorde
 
-	# Manejar acordes con bajo (por ejemplo D/F#)
-	if '/' in acorde:
-		parte_superior, bajo = acorde.split('/')
-		parte_superior_convertida = convertir_a_latex(parte_superior)
-		bajo_convertido = convertir_a_latex(bajo)
-		return f"{parte_superior_convertida}/{bajo_convertido}"
+    # Manejar acordes con bajo (por ejemplo D/F#)
+    if "/" in acorde:
+        parte_superior, bajo = acorde.split("/")
+        parte_superior_convertida = convertir_a_latex(parte_superior)
+        bajo_convertido = convertir_a_latex(bajo)
+        return f"{parte_superior_convertida}/{bajo_convertido}"
 
-	match = re.match(r'^([A-Ga-g][#b]?m?)(.*)$', acorde)
-	if match:
-		raiz, extension = match.groups()
-		raiz_mayus = raiz[0].upper() + raiz[1:]
-		raiz_convertida = mapa.get(raiz_mayus, raiz)
+    match = re.match(r"^([A-Ga-g][#b]?m?)(.*)$", acorde)
+    if match:
+        raiz, extension = match.groups()
+        raiz_mayus = raiz[0].upper() + raiz[1:]
+        raiz_convertida = mapa.get(raiz_mayus, raiz)
 
-		# Convertir SÓLO La# a Sib
-		raiz_convertida = mapa_bemoles_excepcion.get(raiz_convertida, raiz_convertida)
+        # Convertir SÓLO La# a Sib
+        raiz_convertida = mapa_bemoles_excepcion.get(raiz_convertida, raiz_convertida)
 
-		return raiz_convertida + extension
+        return raiz_convertida + extension
 
-	return acorde
+    return acorde
+
+
 def procesar_linea_con_acordes_y_indices(
-    linea,
-    acordes,
-    titulo_cancion=None,
-    simbolo="#",
-    semitonos=0
+    linea, acordes, titulo_cancion=None, simbolo="#", semitonos=0
 ):
     """
     Procesa una línea completa SongPro con:
@@ -221,11 +355,17 @@ def procesar_linea_con_acordes_y_indices(
     palabras = linea.strip().split()
 
     for palabra in palabras:
-        palabra_tex, idx_acorde = procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, semitonos=semitonos)
+        palabra_tex, idx_acorde = procesar_palabra_indexada(
+            palabra, acordes, idx_acorde, titulo_cancion, semitonos=semitonos
+        )
         resultado += palabra_tex + " "
 
     return resultado.rstrip()
-def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indice_nombre="tema", semitonos=0):
+
+
+def procesar_palabra_indexada(
+    palabra, acordes, idx_acorde, titulo_cancion, indice_nombre="tema", semitonos=0
+):
     """
     Procesa UNA palabra SongPro:
     - _ inserta acordes
@@ -252,7 +392,9 @@ def procesar_palabra_indexada(palabra, acordes, idx_acorde, titulo_cancion, indi
                 raise RuntimeError(
                     f"Error: hay más '_' que acordes en la palabra '{palabra}'"
                 )
-            acorde = transportar_acorde(acordes[idx_acorde], semitonos).replace("#", r"\#")
+            acorde = transportar_acorde(acordes[idx_acorde], semitonos).replace(
+                "#", r"\#"
+            )
             resultado += f"\\[{acorde}]"
             idx_acorde += 1
 
@@ -276,28 +418,30 @@ def escape_latex_raw(linea):
     SOLO para la sección N (RAW)
     """
     replacements = {
-        '#': r'\#',
-        '%': r'\%',
-        '&': r'\&',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
+        "#": r"\#",
+        "%": r"\%",
+        "&": r"\&",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
     }
     for k, v in replacements.items():
         linea = linea.replace(k, v)
     return linea
+
 
 def extraer_transposicion(titulo_raw):
     """
     Extrae transposición del tipo '=+2' o '=-2' al final del título.
     Retorna: (titulo_limpio, semitonos)
     """
-    match = re.search(r'\s*=\s*([+-]?\d+)\s*$', titulo_raw)
+    match = re.search(r"\s*=\s*([+-]?\d+)\s*$", titulo_raw)
     if match:
         semitonos = int(match.group(1))
-        titulo_limpio = re.sub(r'\s*=\s*[+-]?\d+\s*$', '', titulo_raw).strip()
+        titulo_limpio = re.sub(r"\s*=\s*[+-]?\d+\s*$", "", titulo_raw).strip()
         return titulo_limpio, semitonos
     return titulo_raw.strip(), 0
+
 
 def sanitize_for_diagram(texto: str) -> str:
     """
@@ -306,38 +450,40 @@ def sanitize_for_diagram(texto: str) -> str:
     - escapa caracteres especiales típicos de LaTeX
     """
     replacements = {
-        '\\': r'\textbackslash{}',
-        '{': r'\{',
-        '}': r'\}',
-        '#': r'\#',
-        '$': r'\$',
-        '%': r'\%',
-        '&': r'\&',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
-        '_': ' ',  # en el esquema no queremos guiones bajos
+        "\\": r"\textbackslash{}",
+        "{": r"\{",
+        "}": r"\}",
+        "#": r"\#",
+        "$": r"\$",
+        "%": r"\%",
+        "&": r"\&",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+        "_": " ",  # en el esquema no queremos guiones bajos
     }
     out = []
     for ch in texto:
         out.append(replacements.get(ch, ch))
-    return ''.join(out)
+    return "".join(out)
+
 
 def limpiar_titulo_para_label(titulo):
-    titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
-    titulo = unicodedata.normalize('NFD', titulo)
-    titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
-    titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
-    return titulo.replace(' ', '-')
+    titulo = re.sub(r"\s*=[+-]?\d+\s*$", "", titulo.strip())
+    titulo = unicodedata.normalize("NFD", titulo)
+    titulo = "".join(c for c in titulo if unicodedata.category(c) != "Mn")
+    titulo = re.sub(r"[^a-zA-Z0-9\- ]+", "", titulo)
+    return titulo.replace(" ", "-")
+
 
 def convertir_songpro(texto):
     transposicion_actual = 0
     repeat_abierto = False
-    lineas = [l.rstrip() for l in texto.split('\n')]
+    lineas = [l.rstrip() for l in texto.split("\n")]
 
     resultado = []
 
-    bloque_actual = []      # V / C / M
-    raw_buffer = []         # SOLO RAW (N)
+    bloque_actual = []  # V / C / M
+    raw_buffer = []  # SOLO RAW (N)
 
     tipo_bloque = None
     raw_mode = False
@@ -352,33 +498,35 @@ def convertir_songpro(texto):
     def cerrar_raw():
         nonlocal raw_buffer
         if raw_buffer:
-            resultado.append(r'\\'.join(raw_buffer) + r'\\')
-            resultado.append('')
+            resultado.append(r"\\".join(raw_buffer) + r"\\")
+            resultado.append("")
             raw_buffer = []
+
     def procesar_repeticiones_en_letra(linea):
         nonlocal repeat_abierto
 
         tokens = linea.split()
 
         # B debe convivir con letra
-        if not any(t.startswith('B') for t in tokens) or len(tokens) == 1:
+        if not any(t.startswith("B") for t in tokens) or len(tokens) == 1:
             return linea
 
         salida = []
         for t in tokens:
             # Caso B, B3, B4, etc.
-            if (t.startswith('B') and t[1:].isdigit()) or t == 'B':
+            if (t.startswith("B") and t[1:].isdigit()) or t == "B":
                 if not repeat_abierto:
-                    salida.append(r'\lrep')
+                    salida.append(r"\lrep")
                     repeat_abierto = True
                 else:
-                    rep_num = t[1:] if t != 'B' else '2'
-                    salida.append(rf'\rrep \rep{{{rep_num}}}')
+                    rep_num = t[1:] if t != "B" else "2"
+                    salida.append(rf"\rrep \rep{{{rep_num}}}")
                     repeat_abierto = False
             else:
                 salida.append(t)
 
-        return ' '.join(salida)
+        return " ".join(salida)
+
     def cerrar_bloque():
         nonlocal bloque_actual, tipo_bloque, repeat_abierto
         print(f"⏹️ [PARSER] Llamada a cerrar_bloque() desde el ciclo principal")
@@ -390,64 +538,63 @@ def convertir_songpro(texto):
             return
 
         env = {
-            'verse':  ('\\beginverse',  '\\endverse'),
-            'chorus': ('\\beginchorus', '\\endchorus'),
-            'melody': ('\\beginverse',  '\\endverse'),
+            "verse": ("\\beginverse", "\\endverse"),
+            "chorus": ("\\beginchorus", "\\endchorus"),
+            "melody": ("\\beginverse", "\\endverse"),
         }.get(tipo_bloque)
 
         if not env:
             bloque_actual = []
             tipo_bloque = None
             return
-        print(f"🔍 [PARSER] Cerrando bloque {tipo_bloque} con {len(bloque_actual)} líneas:")
+        print(
+            f"🔍 [PARSER] Cerrando bloque {tipo_bloque} con {len(bloque_actual)} líneas:"
+        )
         for idx, line in enumerate(bloque_actual):
             print(f"    {idx}: '{line}'")
 
         if repeat_abierto:
-            bloque_actual.append(r'\rrep \rep{2}')
+            bloque_actual.append(r"\rrep \rep{2}")
             repeat_abierto = False
 
         begin, end = env
 
         diagrama_id = {
-            'verse':  'A',
-            'chorus': 'B',
-            'melody': 'C',   # o lo que quieras
-    }.get(tipo_bloque, 'A')
+            "verse": "A",
+            "chorus": "B",
+            "melody": "C",  # o lo que quieras
+        }.get(tipo_bloque, "A")
 
         # Todo el verso con acordes ya formateados
-        contenido_songs = ' \\\\'.join(bloque_actual)
+        contenido_songs = " \\\\".join(bloque_actual)
 
-        resultado.extend([
-            begin,
-            r"\medskip",
-            fr"\diagram{{{diagrama_id}}}{{{contenido_songs}}}",
-            end,
-            r"\medskip",
-        ])
+        resultado.extend(
+            [
+                begin,
+                r"\medskip",
+                rf"\diagram{{{diagrama_id}}}{{{contenido_songs}}}",
+                end,
+                r"\medskip",
+            ]
+        )
 
         bloque_actual = []
         tipo_bloque = None
 
-
-
-
-
-
     def cerrar_cancion():
-            nonlocal cancion_abierta
-            if cancion_abierta:
-                print(f"🔍 [PARSER] Cerrando canción '{titulo_cancion_actual}'")
-                resultado.append(r'\endsong')
-                resultado.append('')
-                cancion_abierta = False
+        nonlocal cancion_abierta
+        if cancion_abierta:
+            print(f"🔍 [PARSER] Cerrando canción '{titulo_cancion_actual}'")
+            resultado.append(r"\endsong")
+            resultado.append("")
+            cancion_abierta = False
 
     # =========================
     # PARSER
     # =========================
     i = 0
     while i < len(lineas):
-        		
+
         linea = lineas[i].strip()
         app.logger.info(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
         if "Reden" in linea or "RE" == linea:
@@ -457,16 +604,16 @@ def convertir_songpro(texto):
         # MODO RAW
         # =========================
         if raw_mode:
-            if linea == 'N':
+            if linea == "N":
                 cerrar_raw()
-                raw_mode = True   # sigue en RAW
+                raw_mode = True  # sigue en RAW
                 i += 1
                 continue
 
-            if linea in ('V', 'CH', 'M', 'O', 'S'):
+            if linea in ("V", "CH", "M", "O", "S"):
                 cerrar_raw()
                 raw_mode = False
-                continue   # reprocesar esta línea
+                continue  # reprocesar esta línea
 
             raw_buffer.append(escape_latex_raw(linea))
             i += 1
@@ -475,7 +622,7 @@ def convertir_songpro(texto):
         # =========================
         # N → abrir RAW
         # =========================
-        if linea == 'N':
+        if linea == "N":
             cerrar_bloque()
             raw_mode = True
             i += 1
@@ -484,24 +631,26 @@ def convertir_songpro(texto):
         # =========================
         # SECCIÓN
         # =========================
-        if linea.startswith('S '):
+        if linea.startswith("S "):
             cerrar_bloque()
             cerrar_cancion()
             if seccion_abierta:
-                resultado.append(r'\end{songs}')
-                resultado.append('')				
+                resultado.append(r"\end{songs}")
+                resultado.append("")
             seccion_abierta = True
-            resultado.extend([
-                r'\songchapter{' + linea[2:].strip().title() + '}',
-                r'\begin{songs}{titleidx}'
-            ])
+            resultado.extend(
+                [
+                    r"\songchapter{" + linea[2:].strip().title() + "}",
+                    r"\begin{songs}{titleidx}",
+                ]
+            )
             i += 1
             continue
 
         # =========================
         # CANCIÓN
         # =========================
-        if linea.startswith('O '):
+        if linea.startswith("O "):
             cerrar_bloque()
             cerrar_cancion()
 
@@ -510,7 +659,7 @@ def convertir_songpro(texto):
 
             titulo_cancion_actual = titulo_limpio.title()
 
-            resultado.append(r'\beginsong{' + titulo_cancion_actual + '}')
+            resultado.append(r"\beginsong{" + titulo_cancion_actual + "}")
             cancion_abierta = True
             i += 1
             continue
@@ -518,19 +667,22 @@ def convertir_songpro(texto):
         # =========================
         # BLOQUES
         # =========================
-        if linea == 'V':
+        if linea == "V":
             cerrar_bloque()
-            tipo_bloque = 'verse'
+            tipo_bloque = "verse"
             if i + 2 < len(lineas):
-                siguiente = lineas[i+1].strip()
-                siguiente2 = lineas[i+2].strip()
-				# Caso especial: V / C / _Estrofa   --> C es acorde Do
-                if siguiente == 'CH' and siguiente2.startswith('_'):
+                siguiente = lineas[i + 1].strip()
+                siguiente2 = lineas[i + 2].strip()
+                # Caso especial: V / C / _Estrofa   --> C es acorde Do
+                if siguiente == "CH" and siguiente2.startswith("_"):
                     # construimos la línea con acorde Do sobre el primer '_'
-                    acordes = ['C']  # o 'Do' según quieras
+                    acordes = ["C"]  # o 'Do' según quieras
                     linea_estrofa = siguiente2
                     linea_procesada = procesar_linea_con_acordes_y_indices(
-                        linea_estrofa, acordes, titulo_cancion_actual, semitonos=transposicion_actual
+                        linea_estrofa,
+                        acordes,
+                        titulo_cancion_actual,
+                        semitonos=transposicion_actual,
                     )
                     bloque_actual.append(linea_procesada)
                     # saltar las dos líneas ya consumidas
@@ -539,15 +691,15 @@ def convertir_songpro(texto):
             i += 1
             continue
 
-        if linea == 'CH':
+        if linea == "CH":
             cerrar_bloque()
-            tipo_bloque = 'chorus'
+            tipo_bloque = "chorus"
             i += 1
             continue
 
-        if linea == 'M':
+        if linea == "M":
             cerrar_bloque()
-            tipo_bloque = 'melody'
+            tipo_bloque = "melody"
             i += 1
             continue
         if es_linea_acordes(linea):
@@ -558,15 +710,28 @@ def convertir_songpro(texto):
         # TEXTO NORMAL
         # =========================
         if tipo_bloque:
-            app.logger.info(f"📝 [PARSER] Procesando letra en bloque {tipo_bloque}: '{linea}'")
-            if i > 0 and es_linea_acordes(lineas[i-1]):
-                acordes = lineas[i-1].split()
-                app.logger.info(f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}")
-                linea_procesada = procesar_linea_con_acordes_y_indices(linea, acordes, titulo_cancion_actual, semitonos=transposicion_actual)
-                app.logger.info(f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'")
+            app.logger.info(
+                f"📝 [PARSER] Procesando letra en bloque {tipo_bloque}: '{linea}'"
+            )
+            if i > 0 and es_linea_acordes(lineas[i - 1]):
+                acordes = lineas[i - 1].split()
+                app.logger.info(
+                    f"🎵 [PARSER] Acordes encontrados en línea anterior: {acordes}"
+                )
+                linea_procesada = procesar_linea_con_acordes_y_indices(
+                    linea,
+                    acordes,
+                    titulo_cancion_actual,
+                    semitonos=transposicion_actual,
+                )
+                app.logger.info(
+                    f"✅ [PARSER] Línea procesada con acordes: '{linea_procesada}'"
+                )
             else:
-                app.logger.warning(f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'")
-                linea_procesada = linea.replace('_', '')
+                app.logger.warning(
+                    f"⚠️ [PARSER] No se encontraron acordes para la línea: '{linea}'"
+                )
+                linea_procesada = linea.replace("_", "")
                 app.logger.info(f"➡️ [PARSER] Línea sin acordes: '{linea_procesada}'")
             bloque_actual.append(linea_procesada)
             i += 1
@@ -575,7 +740,7 @@ def convertir_songpro(texto):
             app.logger.warning(f"⚠️ [PARSER] Línea fuera de bloque: '{linea}'")
             i += 1
             continue
-# =========================
+    # =========================
     # CIERRES FINALES
     # =========================
     if raw_mode:
@@ -585,39 +750,43 @@ def convertir_songpro(texto):
     cerrar_cancion()
 
     if seccion_abierta:
-        resultado.append(r'\end{songs}')
+        resultado.append(r"\end{songs}")
 
-    return '\n'.join(resultado)
-
+    return "\n".join(resultado)
 
 
 def normalizar(palabra):
-	# Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
-	return ''.join(
-		c for c in unicodedata.normalize('NFD', palabra.lower())
-		if unicodedata.category(c) != 'Mn'
-	)
+    # Normaliza palabra para ordenar (quita tildes y pasa a minúscula)
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", palabra.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
 
 def convertir_a_latina(acorde):
-	"""Convierte un acorde de notación americana a latina, incluyendo acordes con bajo."""
-	if '/' in acorde:
-		parte_superior, bajo = acorde.split('/')
-		parte_superior = equivalencias_latinas.get(parte_superior, parte_superior)
-		bajo = equivalencias_latinas.get(bajo, bajo)
-		return f"{parte_superior}/{bajo}"
-	return equivalencias_latinas.get(acorde, acorde)
+    """Convierte un acorde de notación americana a latina, incluyendo acordes con bajo."""
+    if "/" in acorde:
+        parte_superior, bajo = acorde.split("/")
+        parte_superior = equivalencias_latinas.get(parte_superior, parte_superior)
+        bajo = equivalencias_latinas.get(bajo, bajo)
+        return f"{parte_superior}/{bajo}"
+    return equivalencias_latinas.get(acorde, acorde)
+
 
 def limpiar_titulo_para_label(titulo):
-	# Elimina transposición al final como ' =-2' o '=+1'
-	titulo = re.sub(r'\s*=[+-]?\d+\s*$', '', titulo.strip())
-	# Normaliza: quita tildes y caracteres no válidos para etiquetas
-	titulo = unicodedata.normalize('NFD', titulo)
-	titulo = ''.join(c for c in titulo if unicodedata.category(c) != 'Mn')
-	titulo = re.sub(r'[^a-zA-Z0-9\- ]+', '', titulo)
-	return titulo.replace(' ', '-')
+    # Elimina transposición al final como ' =-2' o '=+1'
+    titulo = re.sub(r"\s*=[+-]?\d+\s*$", "", titulo.strip())
+    # Normaliza: quita tildes y caracteres no válidos para etiquetas
+    titulo = unicodedata.normalize("NFD", titulo)
+    titulo = "".join(c for c in titulo if unicodedata.category(c) != "Mn")
+    titulo = re.sub(r"[^a-zA-Z0-9\- ]+", "", titulo)
+    return titulo.replace(" ", "-")
+
 
 texto_ejemplo = """
  """
+
 
 def compilar_tex_seguro(tex_path):
     """
@@ -629,7 +798,21 @@ def compilar_tex_seguro(tex_path):
     tex_file = os.path.basename(tex_path)
     base_name = os.path.splitext(tex_file)[0]
     logs = ""
-    AUX_FILES = ['.aux', '.log', '.out', '.toc', '.lof', '.lot', '.tema.ind', '.tema.idx', '.cbtitle', '.cbtitle.ind', '.fls', '.synctex.gz']
+    AUX_FILES = [
+        ".aux",
+        ".log",
+        ".out",
+        ".toc",
+        ".lof",
+        ".lot",
+        ".tema.ind",
+        ".tema.idx",
+        ".cbtitle",
+        ".cbtitle.ind",
+        ".fls",
+        ".synctex.gz",
+    ]
+
     def cleanup_aux_files():
         """Elimina todos los archivos auxiliares generados por LaTeX y makeindex."""
         for ext in AUX_FILES:
@@ -638,12 +821,17 @@ def compilar_tex_seguro(tex_path):
                 try:
                     os.remove(aux_file)
                 except Exception as e:
-                    app.logger.warning(f"No se pudo borrar el archivo auxiliar {aux_file}: {e}")
+                    app.logger.warning(
+                        f"No se pudo borrar el archivo auxiliar {aux_file}: {e}"
+                    )
+
     try:
         # Primera pasada
         result = subprocess.run(
             ["pdflatex", "-interaction=nonstopmode", tex_file],
-            capture_output=True, text=True, cwd=tex_dir
+            capture_output=True,
+            text=True,
+            cwd=tex_dir,
         )
         logs += "\n--- COMPILACIÓN 1 ---\n" + result.stdout + result.stderr
         if result.returncode != 0:
@@ -656,14 +844,20 @@ def compilar_tex_seguro(tex_path):
             (f"{base}.cbtitle", f"{base}.cbtitle.ind"),
         ]:
             if os.path.exists(os.path.join(tex_dir, entrada)):
-                cmd = ["makeindex", entrada] if salida is None else ["makeindex", "-o", salida, entrada]
+                cmd = (
+                    ["makeindex", entrada]
+                    if salida is None
+                    else ["makeindex", "-o", salida, entrada]
+                )
                 mi = subprocess.run(cmd, capture_output=True, text=True, cwd=tex_dir)
                 logs += "\n--- MAKEINDEX ---\n" + mi.stdout + mi.stderr
 
         # Segunda pasada
         result2 = subprocess.run(
             ["pdflatex", "-interaction=nonstopmode", tex_file],
-            capture_output=True, text=True, cwd=tex_dir
+            capture_output=True,
+            text=True,
+            cwd=tex_dir,
         )
         logs += "\n--- COMPILACIÓN 2 ---\n" + result2.stdout + result2.stderr
         if result2.returncode != 0:
@@ -682,15 +876,20 @@ def compilar_tex_seguro(tex_path):
             f.write(logs)
         with open(log_path, "r", encoding="utf-8") as f:
             error_log = f.read()
-        raise RuntimeError(f"Error de sintaxis en el texto ingresado\nDetalles del log:\n{error_log}")
+        raise RuntimeError(
+            f"Error de sintaxis en el texto ingresado\nDetalles del log:\n{error_log}"
+        )
     finally:
         # **LIMPIEZA CRÍTICA:** Se ejecuta siempre, haya éxito o error.
         cleanup_aux_files()
 
+
 @app.route("/api/generar_pdf", methods=["POST"])
 def api_generar_pdf():
     try:
-        texto = request.data.decode("utf-8")  # Recibe el cuerpo de la petición como texto plano
+        texto = request.data.decode(
+            "utf-8"
+        )  # Recibe el cuerpo de la petición como texto plano
 
         # Aquí llamas a la función que procesa 'texto' y genera el PDF
         # Ejemplo:
@@ -706,6 +905,8 @@ def api_generar_pdf():
     except Exception as e:
         app.logger.error(f"Error en api_generar_pdf: {str(e)}")
         return f"Error procesando texto: {str(e)}", 500
+
+
 # 🔹 HTML con menú y botón PDF
 FORM_HTML = """
 <h2>Creador Cancionero</h2>
@@ -746,10 +947,11 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 """
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     error = None
-    texto = session.get('texto_guardado', "")
+    texto = session.get("texto_guardado", "")
 
     if request.method == "POST":
         try:
@@ -758,25 +960,22 @@ def index():
             app.logger.info(f"Texto recibido: {repr(texto)}")
 
             # Guardar texto en sesión por si hay error
-            session['texto_guardado'] = texto
+            session["texto_guardado"] = texto
 
             # Procesar canciones
             indice_tematica_global.clear()
             contenido_canciones = convertir_songpro(texto)
-            
 
             def reemplazar(match):
                 return (
-                    match.group(1)
-                    + "\n" + contenido_canciones
-                    + "\n" + match.group(3)
+                    match.group(1) + "\n" + contenido_canciones + "\n" + match.group(3)
                 )
 
             nuevo_tex = re.sub(
                 r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
                 reemplazar,
                 plantilla,
-                flags=re.S
+                flags=re.S,
             )
 
             with open(archivo_salida, "w", encoding="utf-8") as f:
@@ -794,12 +993,15 @@ def index():
     # GET inicial o si hubo error en POST
     return render_template_string(FORM_HTML, texto=texto, error=error)
 
+
 @app.route("/get/pdf/", methods=["POST"])
 def get_pdf():
     try:
         texto = request.data.decode("utf-8")
+
+        texto = procesar_repeticiones(texto)
+
         contenido_canciones = convertir_songpro(texto)
-        
 
         def reemplazar(match):
             """Función para reemplazar el marcador en la plantilla LaTeX."""
@@ -809,7 +1011,7 @@ def get_pdf():
             r"(% --- INICIO CANCIONERO ---)(.*?)(% --- FIN CANCIONERO ---)",
             reemplazar,
             plantilla,
-            flags=re.S
+            flags=re.S,
         )
 
         # 1. Generar un UUID para un nombre de archivo único
@@ -817,7 +1019,7 @@ def get_pdf():
         base_filename = f"cancionero_{unique_id}"
 
         with tempfile.TemporaryDirectory(dir=directorio_pdfs) as temp_dir:
-            
+
             # 2. Usar el UUID para construir los nombres de los archivos
             archivo_salida_unico = os.path.join(temp_dir, f"{base_filename}.tex")
             pdf_file = os.path.join(temp_dir, f"{base_filename}.pdf")
@@ -847,17 +1049,21 @@ def get_pdf():
                     buffer,
                     as_attachment=False,
                     mimetype="application/pdf",
-                    download_name="cancionero.pdf"
+                    download_name="cancionero.pdf",
                 )
 
             else:
                 return jsonify({"error": "No se generó el PDF"}), 500
 
+    except ValueError as e:
+        app.logger.error(f"Error de repeticiones: {e}")
+        return jsonify({"error": str(e)}), 400
+
     except RuntimeError as e:
         # Captura errores específicos de compilación lanzados por compilar_tex_seguro
         app.logger.error(f"Error de compilación capturado: {e}")
         return jsonify({"error": str(e)}), 500
-	
+
     except Exception as e:
         app.logger.error(f"Error no manejado en /get/pdf: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -866,90 +1072,3 @@ def get_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
