@@ -77,6 +77,12 @@
   \schema{\schemabox{#1}}{\schemabox{#2}}%
 }
 
+\newenvironment{introchords}[1]{%
+  \par\medskip\noindent\textit{#1:}\quad
+}{%
+  \par\medskip
+}
+
 \newcommand\esquema[2]{%
   \schema[closed]{\schemabox{#2}}{\schemabox{#1}}%
 }
