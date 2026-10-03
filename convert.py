@@ -483,7 +483,9 @@ def convertir_songpro(texto):
 
     tipo_bloque = None
     raw_mode = False
-
+    intro_mode = False
+    intro_ref = None
+    intro_buffer = []	
     seccion_abierta = False
     cancion_abierta = False
     titulo_cancion_actual = ""
@@ -585,16 +587,74 @@ def convertir_songpro(texto):
             resultado.append("")
             cancion_abierta = False
 
+    def es_marca_estructural(linea):
+        return (
+            linea in ("V", "CH", "M", "N", "I")
+            or linea.startswith("S ")
+            or linea.startswith("O ")
+            or linea.startswith("I ")
+        )
+
+    def formatear_linea_intro(linea, semitonos):
+        tokens = linea.split()
+        # ignorar comandos ya generados (\lrep, \rrep\rep{2}) para decidir el tipo
+        sin_cmds = [t for t in tokens if not t.startswith("\\")]
+
+        # línea de texto: sin acordes, solo escape
+        if sin_cmds and not es_linea_acordes(" ".join(sin_cmds)):
+            return " ".join(
+                t if t.startswith("\\") else escape_latex_raw(t) for t in tokens
+            )
+
+        # línea de acordes: transponer y aplicar el estilo de la plantilla
+        salida = []
+        for t in tokens:
+            if t.startswith("\\"):
+                salida.append(t)
+            else:
+                acorde = transportar_acorde(t, semitonos).replace("#", r"\#")
+                salida.append(r"{\printchord{" + acorde + "}}")
+        return " ".join(salida)
+
+    def cerrar_intro():
+        nonlocal intro_mode, intro_ref, intro_buffer
+        if not intro_mode:
+            return
+        resultado.append(r"\begin{introchords}{" + (intro_ref or "Intro") + "}")
+        resultado.append(r" \\ ".join(intro_buffer))
+        resultado.append(r"\end{introchords}")
+        resultado.append("")
+        intro_mode = False
+        intro_ref = None
+        intro_buffer = []
+
     # =========================
     # PARSER
     # =========================
     i = 0
+
+
     while i < len(lineas):
 
         linea = lineas[i].strip()
         app.logger.info(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
         if "Reden" in linea or "RE" == linea:
             print(f"🔍 [PARSER] Procesando línea {i}: '{linea}'")
+
+        # =========================
+        # MODO INTRO (I)
+        # =========================
+        if intro_mode:
+            if es_marca_estructural(linea):
+                cerrar_intro()
+                # sin continue: la línea se reprocesa abajo
+            else:
+                if linea:
+                    intro_buffer.append(
+                        formatear_linea_intro(linea, transposicion_actual)
+                    )
+                i += 1
+                continue
 
         # =========================
         # MODO RAW
@@ -606,7 +666,7 @@ def convertir_songpro(texto):
                 i += 1
                 continue
 
-            if linea in ("V", "CH", "M", "O", "S"):
+            if es_marca_estructural(linea):
                 cerrar_raw()
                 raw_mode = False
                 continue  # reprocesar esta línea
@@ -614,13 +674,24 @@ def convertir_songpro(texto):
             raw_buffer.append(escape_latex_raw(linea))
             i += 1
             continue
-
+		
         # =========================
         # N → abrir RAW
         # =========================
         if linea == "N":
             cerrar_bloque()
             raw_mode = True
+            i += 1
+            continue
+
+		# =========================
+        # I → INTRO (acordes)
+        # =========================
+        if linea == "I" or linea.startswith("I "):
+            cerrar_bloque()  # cierra un verso abierto, pero NO la canción
+            intro_mode = True
+            intro_buffer = []
+            intro_ref = escape_latex_raw(linea[2:].strip()) or "Intro"
             i += 1
             continue
 
@@ -743,12 +814,14 @@ def convertir_songpro(texto):
         cerrar_raw()
 
     cerrar_bloque()
+    cerrar_intro()
     cerrar_cancion()
 
     if seccion_abierta:
         resultado.append(r"\end{songs}")
 
     return "\n".join(resultado)
+    
 
 
 def normalizar(palabra):
