@@ -349,11 +349,18 @@ def normalizar_nombre_gtab(acorde):
     nota, alt, resto = m.groups()
     return nota.capitalize() + (alt or "") + resto
 
+# Formas especiales por raíz (cuerdas 6→1, None = muda)
+DIM7_ESPECIALES = {
+    "Do#": [0, 4, 2, 3, 2, 0],   # Do#dim7: 042320
+}
+
+
 def gtab_para_acorde(acorde):
     """
     Recibe un acorde ya transpuesto, en notación latina (ej. 'Sidim', 'Dom7b5').
     Devuelve el comando \\gtab o None si no es dim / dim7 / m7b5.
     Cuerdas, de grave a aguda: Mi, La, Re, Sol, Si, mi.
+    Todas las formas quedan dentro de los 4 primeros trastes.
     """
     m = PATRON_GTAB.match(acorde)
     if not m:
@@ -365,29 +372,30 @@ def gtab_para_acorde(acorde):
     if calidad == "dim":
         calidad = "dim7"  # en el cancionero, dim se toca y se rotula como dim7
     pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
-    n = (pc - 9) % 12  # traste de la raíz en la cuerda La
+    clave = nombre + (alt or "")
 
     if calidad == "dim7":
-        # simétrico: la forma se repite cada 3 trastes; se usa la posición 4, 5 o 6
-        nn = 4 + (n - 4) % 3
-        trastes = [nn - 4, nn, nn - 2, nn - 1, nn - 2, nn - 4]
-    elif n <= 9:  # m7b5
-        trastes = [None, n, n + 1, n, n + 1, None]
-    else:
-        # raíz muy aguda en la cuerda La: forma con raíz en la cuerda Re
-        r = (pc - 2) % 12
-        trastes = [None, None, r, r + 1, r + 1, r + 1]
+        if clave in DIM7_ESPECIALES:
+            trastes = DIM7_ESPECIALES[clave]
+        else:
+            # forma XX2323 desplazada; el dim7 se repite cada 3 trastes
+            s = ((pc - 1) + 2) % 3 - 2          # s entre -2 y 0
+            trastes = [None, None, 2 + s, 3 + s, 2 + s, 3 + s]
+    else:  # m7b5
+        n = (pc - 9) % 12                       # traste de la raíz en la cuerda La
+        if n <= 4:                              # forma X2323X
+            trastes = [None, n, n + 1, n, n + 1, None]
+        else:
+            e = (pc - 4) % 12                   # traste de la raíz en la cuerda Mi grave
+            if 1 <= e <= 4:                     # raíz en la cuerda 6
+                trastes = [e, None, e, e, e - 1, None]
+            else:                               # raíz en la cuerda Re (Re, Re#, Mi)
+                r = (pc - 2) % 12
+                trastes = [None, None, r, r + 1, r + 1, r + 1]
 
-    tocados = [t for t in trastes if t is not None]
-    if max(tocados) <= 5:
-        base, etiqueta = 0, ""  # posición abierta: trastes absolutos
-    else:
-        base, etiqueta = min(tocados) - 1, f"{min(tocados)}:"  # traste inicial
-    cuerdas = "".join("X" if t is None else str(t - base) for t in trastes)
-
+    cuerdas = "".join("X" if t is None else str(t) for t in trastes)
     nombre_tex = (nombre + (alt or "") + calidad).replace("#", r"\#")
-    return "\\gtab{" + nombre_tex + "}{" + etiqueta + cuerdas + "}"
-
+    return "\\gtab{" + nombre_tex + "}{" + cuerdas + "}"
 def procesar_linea_con_acordes_y_indices(
     linea, acordes, titulo_cancion=None, simbolo="#", semitonos=0
 ):
