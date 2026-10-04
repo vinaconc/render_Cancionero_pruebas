@@ -336,8 +336,9 @@ def convertir_a_latex(acorde):
     return acorde
 
 RAICES_LATINAS = {"Do": 0, "Re": 2, "Mi": 4, "Fa": 5, "Sol": 7, "La": 9, "Si": 11}
-PATRON_GTAB = re.compile(r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?(dim7|dim|m7b5)$")
-
+PATRON_GTAB = re.compile(
+    r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?(dim7|dim|m7b5)$", re.IGNORECASE
+)
 
 def gtab_para_acorde(acorde):
     """
@@ -349,6 +350,9 @@ def gtab_para_acorde(acorde):
     if not m:
         return None
     nombre, alt, calidad = m.groups()
+    nombre = nombre.capitalize()
+    alt = alt.lower() if alt else None
+    calidad = calidad.lower()
     pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
     n = (pc - 9) % 12  # traste de la raíz en la cuerda La
 
@@ -376,7 +380,7 @@ def gtab_para_acorde(acorde):
         base, etiqueta = min(tocados) - 1, f"{min(tocados)}:"  # traste inicial
     cuerdas = "".join("X" if t is None else str(t - base) for t in trastes)
 
-    nombre_tex = acorde.replace("#", r"\#")
+    nombre_tex = (nombre + (alt or "") + calidad).replace("#", r"\#")
     return "\\gtab{" + nombre_tex + "}{" + etiqueta + cuerdas + "}"
 
 
@@ -651,6 +655,7 @@ def convertir_songpro(texto):
         )
 
     def registrar_acordes_gtab(linea):
+    print(f"GTAB: entrada={t!r} semitonos={transposicion_actual} salida={nombre!r}")
         for t in linea.split():
             if t.startswith("\\"):
                 continue
