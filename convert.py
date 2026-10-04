@@ -639,7 +639,7 @@ def convertir_songpro(texto):
             if gtab_idx is not None and acordes_gtab:
                 resultado[gtab_idx] = (
                     r"\noindent "
-                    + " ".join(gtab_para_acorde(a) for a in acordes_gtab)
+                    + " ".join(acordes_gtab)
                     + r"\par\medskip"
                 )
             acordes_gtab.clear()
