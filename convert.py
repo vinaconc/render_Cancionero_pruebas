@@ -340,6 +340,15 @@ PATRON_GTAB = re.compile(
     r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?(dim7|dim|m7b5)$", re.IGNORECASE
 )
 
+
+def normalizar_nombre_gtab(acorde):
+    """DO#dim, do#dim -> Do#dim"""
+    m = re.match(r"^(do|re|mi|fa|sol|la|si)(#|b)?(.*)$", acorde, re.IGNORECASE)
+    if not m:
+        return acorde
+    nota, alt, resto = m.groups()
+    return nota.capitalize() + (alt or "") + resto
+
 def gtab_para_acorde(acorde):
     """
     Recibe un acorde ya transpuesto, en notación latina (ej. 'Sidim', 'Dom7b5').
