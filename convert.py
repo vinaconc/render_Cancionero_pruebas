@@ -353,25 +353,21 @@ def gtab_para_acorde(acorde):
     nombre = nombre.capitalize()
     alt = alt.lower() if alt else None
     calidad = calidad.lower()
+    if calidad == "dim":
+        calidad = "dim7"  # en el cancionero, dim se toca y se rotula como dim7
     pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
     n = (pc - 9) % 12  # traste de la raíz en la cuerda La
 
     if calidad == "dim7":
-        # simétrico: cualquier nota sirve de raíz, se usa la posición más baja
-        n = n % 3 or 3
-        trastes = [None, n, n + 1, n - 1, n + 1, None]
-    elif n <= 9:
-        if calidad == "dim":
-            trastes = [None, n, n + 1, n + 2, n + 1, None]
-        else:  # m7b5
-            trastes = [None, n, n + 1, n, n + 1, None]
+        # simétrico: la forma se repite cada 3 trastes; se usa la posición 4, 5 o 6
+        nn = 4 + (n - 4) % 3
+        trastes = [nn - 4, nn, nn - 2, nn - 1, nn - 2, nn - 4]
+    elif n <= 9:  # m7b5
+        trastes = [None, n, n + 1, n, n + 1, None]
     else:
         # raíz muy aguda en la cuerda La: forma con raíz en la cuerda Re
         r = (pc - 2) % 12
-        if calidad == "dim":
-            trastes = [None, None, r, r + 1, r + 3, r + 1]
-        else:
-            trastes = [None, None, r, r + 1, r + 1, r + 1]
+        trastes = [None, None, r, r + 1, r + 1, r + 1]
 
     tocados = [t for t in trastes if t is not None]
     if max(tocados) <= 5:
@@ -382,8 +378,6 @@ def gtab_para_acorde(acorde):
 
     nombre_tex = (nombre + (alt or "") + calidad).replace("#", r"\#")
     return "\\gtab{" + nombre_tex + "}{" + etiqueta + cuerdas + "}"
-
-
 
 def procesar_linea_con_acordes_y_indices(
     linea, acordes, titulo_cancion=None, simbolo="#", semitonos=0
@@ -658,10 +652,10 @@ def convertir_songpro(texto):
         for t in linea.split():
             if t.startswith("\\"):
                 continue
-            nombre = transportar_acorde(t, transposicion_actual)
-            print(f"GTAB: entrada={t!r} semitonos={transposicion_actual} salida={nombre!r}")
-            if gtab_para_acorde(nombre) and nombre not in acordes_gtab:
-                acordes_gtab.append(nombre)
+            nombre = normalizar_nombre_gtab(transportar_acorde(t, transposicion_actual))
+            g = gtab_para_acorde(nombre)
+            if g and g not in acordes_gtab:
+                acordes_gtab.append(g)
 
 
     def formatear_linea_intro(linea, semitonos):
