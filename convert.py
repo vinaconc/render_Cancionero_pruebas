@@ -335,6 +335,51 @@ def convertir_a_latex(acorde):
 
     return acorde
 
+RAICES_LATINAS = {"Do": 0, "Re": 2, "Mi": 4, "Fa": 5, "Sol": 7, "La": 9, "Si": 11}
+PATRON_GTAB = re.compile(r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?(dim7|dim|m7b5)$")
+
+
+def gtab_para_acorde(acorde):
+    """
+    Recibe un acorde ya transpuesto, en notación latina (ej. 'Sidim', 'Dom7b5').
+    Devuelve el comando \\gtab o None si no es dim / dim7 / m7b5.
+    Cuerdas, de grave a aguda: Mi, La, Re, Sol, Si, mi.
+    """
+    m = PATRON_GTAB.match(acorde)
+    if not m:
+        return None
+    nombre, alt, calidad = m.groups()
+    pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
+    n = (pc - 9) % 12  # traste de la raíz en la cuerda La
+
+    if calidad == "dim7":
+        # simétrico: cualquier nota sirve de raíz, se usa la posición más baja
+        n = n % 3 or 3
+        trastes = [None, n, n + 1, n - 1, n + 1, None]
+    elif n <= 9:
+        if calidad == "dim":
+            trastes = [None, n, n + 1, n + 2, n + 1, None]
+        else:  # m7b5
+            trastes = [None, n, n + 1, n, n + 1, None]
+    else:
+        # raíz muy aguda en la cuerda La: forma con raíz en la cuerda Re
+        r = (pc - 2) % 12
+        if calidad == "dim":
+            trastes = [None, None, r, r + 1, r + 3, r + 1]
+        else:
+            trastes = [None, None, r, r + 1, r + 1, r + 1]
+
+    tocados = [t for t in trastes if t is not None]
+    if max(tocados) <= 5:
+        base, etiqueta = 0, ""  # posición abierta: trastes absolutos
+    else:
+        base, etiqueta = min(tocados) - 1, f"{min(tocados)}:"  # traste inicial
+    cuerdas = "".join("X" if t is None else str(t - base) for t in trastes)
+
+    nombre_tex = acorde.replace("#", r"\#")
+    return "\\gtab{" + nombre_tex + "}{" + etiqueta + cuerdas + "}"
+
+
 
 def procesar_linea_con_acordes_y_indices(
     linea, acordes, titulo_cancion=None, simbolo="#", semitonos=0
@@ -484,6 +529,8 @@ def convertir_songpro(texto):
     tipo_bloque = None
     raw_mode = False
     intro_mode = False
+    gtab_idx = None
+    acordes_gtab = []
     intro_ref = None
     intro_buffer = []	
     seccion_abierta = False
@@ -580,8 +627,16 @@ def convertir_songpro(texto):
         tipo_bloque = None
 
     def cerrar_cancion():
-        nonlocal cancion_abierta
+        nonlocal cancion_abierta, gtab_idx
         if cancion_abierta:
+            if gtab_idx is not None and acordes_gtab:
+                resultado[gtab_idx] = (
+                    r"\noindent "
+                    + " ".join(gtab_para_acorde(a) for a in acordes_gtab)
+                    + r"\par\medskip"
+                )
+            acordes_gtab.clear()
+            gtab_idx = None
             print(f"🔍 [PARSER] Cerrando canción '{titulo_cancion_actual}'")
             resultado.append(r"\endsong")
             resultado.append("")
@@ -595,6 +650,15 @@ def convertir_songpro(texto):
             or linea.startswith("I ")
         )
 
+    def registrar_acordes_gtab(linea):
+        for t in linea.split():
+            if t.startswith("\\"):
+                continue
+            nombre = transportar_acorde(t, transposicion_actual)
+            if gtab_para_acorde(nombre) and nombre not in acordes_gtab:
+                acordes_gtab.append(nombre)
+
+
     def formatear_linea_intro(linea, semitonos):
         tokens = linea.split()
         # ignorar comandos ya generados (\lrep, \rrep\rep{2}) para decidir el tipo
@@ -605,7 +669,7 @@ def convertir_songpro(texto):
             return " ".join(
                 t if t.startswith("\\") else escape_latex_raw(t) for t in tokens
             )
-
+        registrar_acordes_gtab(" ".join(sin_cmds))
         # línea de acordes: transponer y aplicar el estilo de la plantilla
         salida = []
         for t in tokens:
@@ -727,6 +791,11 @@ def convertir_songpro(texto):
             titulo_cancion_actual = titulo_limpio.title()
 
             resultado.append(r"\beginsong{" + titulo_cancion_actual + "}")
+            
+
+            resultado.append("")  # marcador: aquí irán los diagramas
+            gtab_idx = len(resultado) - 1
+            acordes_gtab.clear()
             cancion_abierta = True
             i += 1
             continue
@@ -770,6 +839,7 @@ def convertir_songpro(texto):
             i += 1
             continue
         if es_linea_acordes(linea):
+            registrar_acordes_gtab(linea)
             app.logger.info(f"🎵 [PARSER] Línea de acordes: '{linea}'")
             i += 1
             continue
