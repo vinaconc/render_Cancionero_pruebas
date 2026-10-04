@@ -655,11 +655,11 @@ def convertir_songpro(texto):
         )
 
     def registrar_acordes_gtab(linea):
-    print(f"GTAB: entrada={t!r} semitonos={transposicion_actual} salida={nombre!r}")
         for t in linea.split():
             if t.startswith("\\"):
                 continue
             nombre = transportar_acorde(t, transposicion_actual)
+            print(f"GTAB: entrada={t!r} semitonos={transposicion_actual} salida={nombre!r}")
             if gtab_para_acorde(nombre) and nombre not in acordes_gtab:
                 acordes_gtab.append(nombre)
 
