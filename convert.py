@@ -26,7 +26,7 @@ import re
 
 
 def procesar_repeticiones(texto):
-    """
+    r"""
     Convierte marcas B2, B3, B4 en comandos LaTeX \lrep y \rrep\rep{n}.
     Lanza ValueError si las marcas no están balanceadas.
     """
@@ -336,9 +336,20 @@ def convertir_a_latex(acorde):
     return acorde
 
 RAICES_LATINAS = {"Do": 0, "Re": 2, "Mi": 4, "Fa": 5, "Sol": 7, "La": 9, "Si": 11}
+
+# Calidades reconocidas (las más largas primero). Vacío = acorde mayor.
 PATRON_GTAB = re.compile(
-    r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?(dim7|dim|m7b5)$", re.IGNORECASE
+    r"^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?"
+    r"(m7b5|dim7|dim|maj7|m7|m6|7sus4|sus2|sus4|aug|add9|m|7|6|5)?$",
+    re.IGNORECASE,
 )
+
+# Calidades para las que se genera \gtab. Quita alguna para no dibujarla
+# (por ejemplo "maj" y "min" si solo quieres los acordes menos comunes).
+CALIDADES_ACTIVAS = {
+    "maj", "min", "7", "maj7", "m7", "m6", "6", "5",
+    "sus2", "sus4", "7sus4", "aug", "add9", "dim7", "m7b5",
+}
 
 
 def normalizar_nombre_gtab(acorde):
@@ -349,18 +360,99 @@ def normalizar_nombre_gtab(acorde):
     nota, alt, resto = m.groups()
     return nota.capitalize() + (alt or "") + resto
 
+
 # Formas especiales por raíz (cuerdas 6→1, None = muda)
 DIM7_ESPECIALES = {
     "Do#": [0, 4, 2, 3, 2, 0],   # Do#dim7: 042320
 }
 
+# Digitaciones fijas con prioridad sobre las formas móviles.
+# Clave: (raíz, calidad). Después de transportar, Mib sale como "Re#".
+ACORDES_ESPECIALES = {
+    ("Mib", "maj"): [None, 6, 5, 3, 4, 3],   # forma de DO, cejilla en traste 3
+    ("Re#", "maj"): [None, 6, 5, 3, 4, 3],   # mismo acorde (enarmónico)
+    ("Re", "add9"): [None, 5, 4, 2, 3, 0],   # forma de DO, sin cejilla
+}
+
+# Acordes en posición abierta (más cómodos que la cejilla equivalente).
+# Se usan si no hay una digitación en ACORDES_ESPECIALES.
+ACORDES_ABIERTOS = {
+    ("Do", "maj"):   [None, 3, 2, 0, 1, 0],
+    ("Re", "maj"):   [None, None, 0, 2, 3, 2],
+    ("Sol", "maj"):  [3, 2, 0, 0, 0, 3],
+    ("Re", "min"):   [None, None, 0, 2, 3, 1],
+    ("Do", "7"):     [None, 3, 2, 3, 1, 0],
+    ("Re", "7"):     [None, None, 0, 2, 1, 2],
+    ("Sol", "7"):    [3, 2, 0, 0, 0, 1],
+    ("Si", "7"):     [None, 2, 1, 2, 0, 2],
+    ("Do", "maj7"):  [None, 3, 2, 0, 0, 0],
+    ("Re", "maj7"):  [None, None, 0, 2, 2, 2],
+    ("Sol", "maj7"): [3, 2, 0, 0, 0, 2],
+    ("Fa", "maj7"):  [None, None, 3, 2, 1, 0],
+    ("Re", "m7"):    [None, None, 0, 2, 1, 1],
+    ("Do", "6"):     [None, 3, 2, 2, 1, 0],
+    ("Re", "6"):     [None, None, 0, 2, 0, 2],
+    ("Sol", "6"):    [3, 2, 0, 0, 0, 0],
+    ("Re", "m6"):    [None, None, 0, 2, 0, 1],
+    ("Re", "sus2"):  [None, None, 0, 2, 3, 0],
+    ("Re", "sus4"):  [None, None, 0, 2, 3, 3],
+    ("Re", "7sus4"): [None, None, 0, 2, 1, 3],
+    ("Do", "add9"):  [None, 3, 2, 0, 3, 0],
+}
+
+# Formas móviles: desplazamientos respecto al traste de la raíz.
+# None = cuerda muda. Orden de cuerdas: Mi, La, Re, Sol, Si, mi.
+FORMAS_E = {   # raíz en la cuerda 6
+    "maj":   [0, 2, 2, 1, 0, 0],
+    "min":   [0, 2, 2, 0, 0, 0],
+    "7":     [0, 2, 0, 1, 0, 0],
+    "maj7":  [0, 2, 1, 1, 0, 0],
+    "m7":    [0, 2, 0, 0, 0, 0],
+    "m6":    [0, 2, 2, 0, 2, 0],
+    "6":     [0, 2, 2, 1, 2, 0],
+    "5":     [0, 2, 2, None, None, None],
+    "sus4":  [0, 2, 2, 2, 0, 0],
+    "7sus4": [0, 2, 0, 2, 0, 0],
+    "aug":   [0, 3, 2, 1, 1, 0],
+    "add9":  [0, 2, 2, 1, 0, 2],
+}
+FORMAS_A = {   # raíz en la cuerda 5
+    "maj":   [None, 0, 2, 2, 2, 0],
+    "min":   [None, 0, 2, 2, 1, 0],
+    "7":     [None, 0, 2, 0, 2, 0],
+    "maj7":  [None, 0, 2, 1, 2, 0],
+    "m7":    [None, 0, 2, 0, 1, 0],
+    "m6":    [None, 0, 2, 2, 1, 2],
+    "6":     [None, 0, 2, 2, 2, 2],
+    "5":     [None, 0, 2, 2, None, None],
+    "sus2":  [None, 0, 2, 2, 0, 0],
+    "sus4":  [None, 0, 2, 2, 3, 0],
+    "7sus4": [None, 0, 2, 0, 3, 0],
+    "aug":   [None, 0, 3, 2, 2, 1],
+    "add9":  [None, 0, 2, 4, 2, 0],
+}
+
+
+def _trastes_movibles(calidad, pc):
+    """Elige la forma E o A con la raíz en el traste más bajo."""
+    candidatos = []
+    if calidad in FORMAS_E:
+        candidatos.append(((pc - 4) % 12, FORMAS_E[calidad]))   # raíz en cuerda 6
+    if calidad in FORMAS_A:
+        candidatos.append(((pc - 9) % 12, FORMAS_A[calidad]))   # raíz en cuerda 5
+    if not candidatos:
+        return None
+    base, forma = min(candidatos, key=lambda c: c[0])
+    return [None if o is None else base + o for o in forma]
+
 
 def gtab_para_acorde(acorde):
     """
-    Recibe un acorde ya transpuesto, en notación latina (ej. 'Sidim', 'Dom7b5').
-    Devuelve el comando \\gtab o None si no es dim / dim7 / m7b5.
-    Cuerdas, de grave a aguda: Mi, La, Re, Sol, Si, mi.
-    Todas las formas quedan dentro de los 4 primeros trastes.
+    Recibe un acorde ya transpuesto, en notación latina (ej. 'Sidim', 'Dom7b5',
+    'Lam7', 'Solsus4'). Devuelve el comando \\gtab o None si el acorde no está
+    soportado. Cuerdas, de grave a aguda: Mi, La, Re, Sol, Si, mi.
+    Los dim/dim7/m7b5 quedan en los 4 primeros trastes; mayores, menores y
+    demás usan formas móviles (cejilla) con la raíz en el traste más bajo.
     """
     m = PATRON_GTAB.match(acorde)
     if not m:
@@ -368,9 +460,19 @@ def gtab_para_acorde(acorde):
     nombre, alt, calidad = m.groups()
     nombre = nombre.capitalize()
     alt = alt.lower() if alt else None
-    calidad = calidad.lower()
-    if calidad == "dim":
+    calidad = (calidad or "").lower()
+    rotulo = calidad                       # lo que se escribe tras la raíz
+    if calidad == "":
+        calidad = "maj"
+    elif calidad == "m":
+        calidad = "min"
+    elif calidad == "dim":
         calidad = "dim7"  # en el cancionero, dim se toca y se rotula como dim7
+        rotulo = "dim7"
+
+    if calidad not in CALIDADES_ACTIVAS:
+        return None
+
     pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
     clave = nombre + (alt or "")
 
@@ -381,7 +483,7 @@ def gtab_para_acorde(acorde):
             # forma XX2323 desplazada; el dim7 se repite cada 3 trastes
             s = ((pc - 1) + 2) % 3 - 2          # s entre -2 y 0
             trastes = [None, None, 2 + s, 3 + s, 2 + s, 3 + s]
-    else:  # m7b5
+    elif calidad == "m7b5":
         n = (pc - 9) % 12                       # traste de la raíz en la cuerda La
         if n <= 4:                              # forma X2323X
             trastes = [None, n, n + 1, n, n + 1, None]
@@ -392,10 +494,20 @@ def gtab_para_acorde(acorde):
             else:                               # raíz en la cuerda Re (Re, Re#, Mi)
                 r = (pc - 2) % 12
                 trastes = [None, None, r, r + 1, r + 1, r + 1]
+    else:
+        trastes = ACORDES_ESPECIALES.get((clave, calidad))
+        if trastes is None:
+            trastes = ACORDES_ABIERTOS.get((clave, calidad))
+        if trastes is None:
+            trastes = _trastes_movibles(calidad, pc)
+        if trastes is None:
+            return None
 
     cuerdas = "".join("X" if t is None else str(t) for t in trastes)
-    nombre_tex = (nombre + (alt or "") + calidad).replace("#", r"\#")
+    nombre_tex = (nombre + (alt or "") + rotulo).replace("#", r"\#")
     return "\\gtab{" + nombre_tex + "}{" + cuerdas + "}"
+
+
 def procesar_linea_con_acordes_y_indices(
     linea, acordes, titulo_cancion=None, simbolo="#", semitonos=0
 ):
