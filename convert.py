@@ -371,7 +371,7 @@ DIM7_ESPECIALES = {
 ACORDES_ESPECIALES = {
     ("Mib", "maj"): [None, 6, 5, 3, 4, 3],   # forma de DO, cejilla en traste 3
     ("Re#", "maj"): [None, 6, 5, 3, 4, 3],   # mismo acorde (enarmónico)
-    ("Re", "add9"): [None, 5, 4, 2, 3, 0],   # forma de DO, sin cejilla
+    ("Re", "add9"): [0, 5, 4, None, 3, 0],   # Mi grave al aire, La=5 (Re), Re=4 (Fa#), Sol muda, Si=3 (Re), mi al aire (Mi)
 }
 
 # Acordes en posición abierta (más cómodos que la cejilla equivalente).
@@ -433,8 +433,60 @@ FORMAS_A = {   # raíz en la cuerda 5
 }
 
 
+# Digitaciones fijas (ACORDES_ESPECIALES) que además se dibujan con cejilla.
+CEJILLA_ESPECIALES = {("Mib", "maj"), ("Re#", "maj")}
+
+
+def _con_cejilla(trastes):
+    """
+    Devuelve la cadena para \\gtab con la cejilla marcada y los dedos, p. ej.
+    'X(3535X):013140' (formato del paquete songs: los paréntesis encierran las
+    cuerdas que cubre la cejilla; después de ':' va la digitación, 0 = sin
+    dedo). Devuelve None si no hay cejilla (menos de 2 cuerdas en el traste
+    más bajo o traste 0).
+    """
+    pisadas = [t for t in trastes if t]
+    if not pisadas:
+        return None
+    base = min(pisadas)
+    idx = [i for i, t in enumerate(trastes) if t == base]
+    if len(idx) < 2:
+        return None
+    a, b = idx[0], idx[-1]
+
+    def texto(t):
+        return "X" if t is None else str(t)
+
+    cuerdas = (
+        "".join(texto(t) for t in trastes[:a])
+        + "("
+        + "".join(texto(t) for t in trastes[a:b + 1])
+        + ")"
+        + "".join(texto(t) for t in trastes[b + 1:])
+    )
+
+    # Dedos: 1 = cejilla; 2, 3, 4 para las notas más arriba, de menor a mayor
+    # traste. Si dos cuerdas comparten traste y aún no se usó el 2, van con
+    # anular y meñique (3 y 4), como en las formas de Fa menor o Fa mayor.
+    dedos = [0] * len(trastes)
+    for i in idx:
+        dedos[i] = 1
+    sig = 2
+    if sum(1 for t in trastes if t and t > base) == 1:
+        sig = 3   # una sola nota sobre la cejilla: anular (como en Fa menor 7)
+    for fret in sorted({t for t in trastes if t and t > base}):
+        grupo = [i for i, t in enumerate(trastes) if t == fret]
+        if len(grupo) == 2 and sig == 2:
+            sig = 3
+        for i in grupo:
+            dedos[i] = min(sig, 4)
+            sig += 1
+    return cuerdas + ":" + "".join(str(d) for d in dedos)
+
+
 def _trastes_movibles(calidad, pc):
-    """Elige la forma E o A con la raíz en el traste más bajo."""
+    """Elige la forma E o A con la raíz en el traste más bajo.
+    Devuelve (trastes, traste_base) o None."""
     candidatos = []
     if calidad in FORMAS_E:
         candidatos.append(((pc - 4) % 12, FORMAS_E[calidad]))   # raíz en cuerda 6
@@ -443,7 +495,7 @@ def _trastes_movibles(calidad, pc):
     if not candidatos:
         return None
     base, forma = min(candidatos, key=lambda c: c[0])
-    return [None if o is None else base + o for o in forma]
+    return [None if o is None else base + o for o in forma], base
 
 
 def gtab_para_acorde(acorde):
@@ -473,6 +525,7 @@ def gtab_para_acorde(acorde):
     if calidad not in CALIDADES_ACTIVAS:
         return None
 
+    con_cejilla = False
     pc = (RAICES_LATINAS[nombre] + {"#": 1, "b": -1, None: 0}[alt]) % 12
     clave = nombre + (alt or "")
 
@@ -496,14 +549,22 @@ def gtab_para_acorde(acorde):
                 trastes = [None, None, r, r + 1, r + 1, r + 1]
     else:
         trastes = ACORDES_ESPECIALES.get((clave, calidad))
-        if trastes is None:
+        if trastes is not None:
+            con_cejilla = (clave, calidad) in CEJILLA_ESPECIALES
+        else:
             trastes = ACORDES_ABIERTOS.get((clave, calidad))
         if trastes is None:
-            trastes = _trastes_movibles(calidad, pc)
-        if trastes is None:
-            return None
+            movible = _trastes_movibles(calidad, pc)
+            if movible is None:
+                return None
+            trastes, base = movible
+            con_cejilla = base > 0     # con la raíz al aire no hay cejilla
 
-    cuerdas = "".join("X" if t is None else str(t) for t in trastes)
+    cuerdas = None
+    if calidad not in ("dim7", "m7b5") and con_cejilla:
+        cuerdas = _con_cejilla(trastes)
+    if cuerdas is None:
+        cuerdas = "".join("X" if t is None else str(t) for t in trastes)
     nombre_tex = (nombre + (alt or "") + rotulo).replace("#", r"\#")
     return "\\gtab{" + nombre_tex + "}{" + cuerdas + "}"
 
